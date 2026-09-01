@@ -135,12 +135,13 @@ rooms (
 )
 
 room_memberships (
-  id, room_id, registration_id,
-  assigned_at, left_at,
-  unique (room_id, registration_id)
+  id, event_id, room_id, registration_id,
+  assigned_at, left_at
 )
--- plus: partial unique index on (event_id, registration_id) where left_at is null,
---       enforced via a denormalised event_id column on room_memberships
+-- No unique (room_id, registration_id): it would forbid Room 01 -> Room 02 ->
+-- Room 01, which is legitimate history.
+-- The rule is the partial unique index on (event_id, registration_id)
+-- where left_at is null: at most one ACTIVE membership per player per event.
 
 coordinator_assignments (
   id, event_id, user_id,
@@ -151,7 +152,73 @@ coordinator_assignments (
 
 Rooms are **containers defined before the event** (Alfred plans two rooms in the Overview screen, §40) but **memberships are created at check-in** (§11). That resolves what reads like a contradiction in the bible: the room exists, it's just empty until people show up.
 
-Room assignment is incremental, not a one-shot shuffle. Late arrivals (§12) get assigned into whichever room has headroom under the *current* game's `room_capacity`; if none does, they hold until the next game.
+**Assignment strategy (Phase 6).** Sequential fill by room position: consider rooms in ascending `position`, assign to the first with available capacity, fill Room 01 before Room 02 begins, never exceed `rooms.capacity`. **Check-in order sets priority**, not registration order or player number. Assignment is incremental rather than a one-shot shuffle, and concurrency-safe — lock the room row, count active memberships, insert under that lock — so two simultaneous check-ins cannot claim the same final slot.
+
+If every room is full the player stays checked in and unassigned. **`WAITING_FOR_ROOM` is derived, never stored**: checked in with no active membership row. A stored flag would be a second source of truth that can disagree with the memberships table. Admins can then raise a capacity, open another room, or assign by hand.
+
+Reassignment preserves history — set `left_at`, insert a new row — so "which room was I in during round 2" stays answerable, and `Room 01 → Room 02 → Room 01` is valid.
+
+**Two capacities, never conflated.** `rooms.capacity` is how many players belong to a RECESS room. `event_games.room_capacity` is one game's lobby limit. A room of 20 playing a game that caps at 15 is legitimate — the room plays in shifts — so this is deliberately **not** a cross-table database constraint; Phase 9 Live Control warns about it instead.
+
+Because sequential fill cannot fill a room with no bound, **every room must have a positive capacity before the event may enter `CHECK_IN`**. That is enforced as a precondition of the state transition rather than a column constraint, so a room under construction can still be saved.
+
+### 1.5.1 Game-specific aliases
+
+A player's name inside an external game is often not their RECESS alias, and a
+coordinator reading `alfred2009` in an Among Us lobby needs to know who that is.
+
+```sql
+game_aliases (
+  id, event_id, registration_id, event_game_id,
+  alias, created_at, updated_at,
+  unique (registration_id, event_game_id)
+)
+-- plus unique index on (event_game_id, lower(alias))
+```
+
+Owned by `(registration_id, event_game_id)` — the only key where the database
+can guarantee the game is actually being played at this event. Composite FKs to
+`event_registrations (id, event_id)` and `event_games (id, event_id)` make a
+cross-event alias structurally impossible.
+
+Two players cannot claim the same external name in one game slot: that puts the
+coordinator back to guessing, which is what the table exists to stop. Comparison
+is case-insensitive, storage is exactly as typed. Scope is the event game, not
+the room, because rooms do not exist until check-in and aliases are collected
+before that.
+
+The charset is deliberately looser than `event_registrations.alias` — external
+games allow spaces and punctuation (`Big Al`), a RECESS identity does not.
+
+**The row is mutable, and history lives in the audit log.** An alias is a lookup
+key, not a competition record: a wrong result changes who won, a wrong alias
+makes a coordinator squint. A trigger writes `game_alias.created` /
+`.changed` / `.deleted` to `audit_logs`, which still answers "the result at
+20:10 was entered against a different alias" without a third versioning
+mechanism in the schema.
+
+### 1.5.2 WhatsApp groups
+
+Two levels, both nullable, both validated as WhatsApp group invite URLs by the
+shared `is_whatsapp_group_url()` function:
+
+- `events.whatsapp_group_url` — the main group, joined at registration.
+- `rooms.whatsapp_group_url` — the room's group, revealed after assignment.
+
+RECESS stores and later reveals the link. It manages no memberships and talks
+to no WhatsApp API.
+
+A missing room link is deliberately **not** a `CHECK_IN` precondition. A room
+with no link still functions — the coordinator pastes it into the main group.
+Room capacity is different, because sequential fill genuinely cannot run
+without it. The general rule: a precondition exists when the software cannot
+proceed, not when the night would be nicer if something were filled in.
+Everything in the second category is a Phase 9 readiness warning.
+
+Exposure follows the existing derived model with no extra columns: the link is
+reachable through the active `room_memberships` row, so a player in
+`WAITING_FOR_ROOM` has no active row and therefore no link, and reassignment
+surfaces the new one automatically.
 
 ### 1.6 Rounds and participation
 

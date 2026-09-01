@@ -58,6 +58,12 @@ product behaviour.
 - `src/components` contains no arithmetic. If something computes a point
   value, a rank, or a state decision, it belongs in the database or in
   `src/domain`.
+- **Every migration that creates a table must establish its own RLS posture
+  and grants in the same file** — `enable row level security` plus the grants
+  to `anon`, `authenticated` and `service_role`. Migration 0013's
+  `grant ... on all tables in schema public` was point-in-time and does not
+  reach tables created after it. Forget this and the table returns a privilege
+  error instead of an RLS-filtered empty result.
 - Brand values live in `src/styles/tokens.css`. Tailwind (v4) consumes them
   via the `@theme inline` block in `src/app/globals.css`. Never write an
   arbitrary colour value in a component — ESLint blocks raw hex. Translucent
