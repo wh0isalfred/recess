@@ -10,13 +10,13 @@ import "./globals.css";
 const display = Anton({
   subsets: ["latin"],
   weight: "400",
-  variable: "--font-display",
+  variable: "--font-display-family",
   display: "swap",
 });
 
 const ui = Inter({
   subsets: ["latin"],
-  variable: "--font-ui",
+  variable: "--font-ui-family",
   display: "swap",
 });
 

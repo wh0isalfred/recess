@@ -1,0 +1,560 @@
+diff --git a/.gitignore b/.gitignore
+index 5ef6a52..6803f76 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -30,8 +30,9 @@ yarn-debug.log*
+ yarn-error.log*
+ .pnpm-debug.log*
+ 
+-# env files (can opt-in for committing if needed)
++# env files — ignore every environment file, commit only the example
+ .env*
++!.env.example
+ 
+ # vercel
+ .vercel
+diff --git a/CLAUDE.md b/CLAUDE.md
+index d94e737..ba30914 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -58,8 +58,12 @@ product behaviour.
+ - `src/components` contains no arithmetic. If something computes a point
+   value, a rank, or a state decision, it belongs in the database or in
+   `src/domain`.
+-- Brand values live in `src/styles/tokens.css`. Tailwind consumes them.
+-  Never write an arbitrary value like `bg-[#e63368]` — ESLint blocks raw hex.
++- Brand values live in `src/styles/tokens.css`. Tailwind (v4) consumes them
++  via the `@theme inline` block in `src/app/globals.css`. Never write an
++  arbitrary colour value in a component — ESLint blocks raw hex. Translucent
++  values get a named token, not an alpha modifier at the call site.
++- Tailwind's source scanning is pinned to `src/**/*.{ts,tsx}`. Without that it
++  scans these Markdown files and compiles class names quoted in prose.
+ 
+ ## Layout
+ 
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+index 8a8da9a..d27accf 100644
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -485,7 +485,8 @@ is exactly how they drift apart.
+ 
+ The engineering constraint that stays here: brand values live in
+ `src/styles/tokens.css` as CSS custom properties. Tailwind consumes them via
+-`tailwind.config.ts`. Components use named utilities (`bg-pink`, `text-fg`,
++the `@theme inline` block in `src/app/globals.css`. Components use named
++utilities (`bg-pink`, `text-fg`,
+ `min-h-tap`), never arbitrary values. ESLint blocks raw hex.
+ 
+ ## 8. Risks and contradictions
+diff --git a/docs/BRAND.md b/docs/BRAND.md
+index 767b27f..a1bc160 100644
+--- a/docs/BRAND.md
++++ b/docs/BRAND.md
+@@ -24,7 +24,8 @@ UI, generic SaaS, overly maximalist.
+ ## Tokens
+ 
+ Defined once in `src/styles/tokens.css` as CSS custom properties. Tailwind
+-consumes them through `tailwind.config.ts`. **The tokens are the source of
++consumes them through the `@theme inline` block in `src/app/globals.css`.
++**The tokens are the source of
+ truth; Tailwind is the implementation.** If Tailwind were removed tomorrow,
+ the design system would survive that file intact.
+ 
+@@ -40,9 +41,10 @@ the design system would survive that file intact.
+ | `--pink-deep` | `#c0234f` | pressed state, button shadow |
+ | `--amber` | `#f0a93c` | secondary accent, focus ring, confetti |
+ 
+-Colours are stored as RGB channel triplets (`--pink-rgb: 230 51 104`) with the
+-plain variables derived from them, so Tailwind's alpha modifiers (`bg-pink/40`)
+-work off the same single source.
++Every translucent value is a named token too — `--fg-line`, `--fg-muted`,
++`--field-fill` — rather than an alpha modifier written at each call site. One
++hairline colour defined once beats 20% here and 15% three files away. Because
++those tints are built from `--fg`, they follow the active Surface as well.
+ 
+ Two grounds, one accent that works on both. Hot pink on cream is loud; hot
+ pink on aubergine is luminous.
+diff --git a/eslint.config.mjs b/eslint.config.mjs
+index 05e726d..b4a5a2b 100644
+--- a/eslint.config.mjs
++++ b/eslint.config.mjs
+@@ -13,6 +13,21 @@ const eslintConfig = defineConfig([
+     "build/**",
+     "next-env.d.ts",
+   ]),
++  {
++    files: ["src/**/*.{ts,tsx}"],
++    rules: {
++      // The design system is the source of truth for colour. A raw hex in a
++      // component means a token was bypassed. See docs/BRAND.md.
++      "no-restricted-syntax": [
++        "error",
++        {
++          selector: "Literal[value=/^#[0-9a-fA-F]{3,8}$/]",
++          message:
++            "No raw hex colours. Use a RECESS token from src/styles/tokens.css.",
++        },
++      ],
++    },
++  },
+ ]);
+ 
+ export default eslintConfig;
+diff --git a/next.config.ts b/next.config.ts
+index e9ffa30..2f6491c 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -1,7 +1,7 @@
+ import type { NextConfig } from "next";
+ 
+ const nextConfig: NextConfig = {
+-  /* config options here */
++  reactStrictMode: true,
+ };
+ 
+ export default nextConfig;
+diff --git a/package-lock.json b/package-lock.json
+index 6ce8173..d663a01 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -8,6 +8,8 @@
+       "name": "recess",
+       "version": "0.1.0",
+       "dependencies": {
++        "@supabase/ssr": "^0.5.2",
++        "@supabase/supabase-js": "^2.112.4",
+         "next": "16.3.4",
+         "react": "19.2.8",
+         "react-dom": "19.2.8"
+@@ -1324,6 +1326,111 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/@supabase/auth-js": {
++      "version": "2.112.4",
++      "resolved": "https://registry.npmjs.org/@supabase/auth-js/-/auth-js-2.112.4.tgz",
++      "integrity": "sha512-z8DesgwLzKM5PiT0yNmJU8VJyh1zAhYi+20Z7drdJQLXg/wWW4yGt/un+He5ERYUo94Vz66t5aeyr1DIDemI5A==",
++      "license": "MIT",
++      "dependencies": {
++        "tslib": "2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@supabase/functions-js": {
++      "version": "2.112.4",
++      "resolved": "https://registry.npmjs.org/@supabase/functions-js/-/functions-js-2.112.4.tgz",
++      "integrity": "sha512-DQ0aVH8wSQAccVqNoEkec62qCu2QRNyoGN53RqsVZ1k6F1zq4/v8scrlR6LNT2RJmT97apiTmORijPVhErCS2g==",
++      "license": "MIT",
++      "dependencies": {
++        "tslib": "2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@supabase/phoenix": {
++      "version": "0.4.5",
++      "resolved": "https://registry.npmjs.org/@supabase/phoenix/-/phoenix-0.4.5.tgz",
++      "integrity": "sha512-aAn9H9ovVyeApKy11OWOrrOGq8DV68yWeH4ud2lN9fzn4aO8Zb5GLL9m1pUg9nLqIcT+ZDfAcsZe0E/nqdv2lw==",
++      "license": "MIT"
++    },
++    "node_modules/@supabase/postgrest-js": {
++      "version": "2.112.4",
++      "resolved": "https://registry.npmjs.org/@supabase/postgrest-js/-/postgrest-js-2.112.4.tgz",
++      "integrity": "sha512-uaubtPSeg2TR4wrtfQoQWgkTAe+a0qWX2KhmwvTfNl5mGN9+U7owiJt6abk3o/V6O899PSRD1yzxs5RlF4xTug==",
++      "license": "MIT",
++      "dependencies": {
++        "tslib": "2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@supabase/realtime-js": {
++      "version": "2.112.4",
++      "resolved": "https://registry.npmjs.org/@supabase/realtime-js/-/realtime-js-2.112.4.tgz",
++      "integrity": "sha512-vZ+j079SKrM0Xiq7MJCvQKLDpaH2kfKfLY68xuQE1sqsCsMmx1CyrDBJHsxZ3cX01VOs5SI9igmoZAF3BmdZxw==",
++      "license": "MIT",
++      "dependencies": {
++        "@supabase/phoenix": "0.4.5",
++        "tslib": "2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@supabase/ssr": {
++      "version": "0.5.2",
++      "resolved": "https://registry.npmjs.org/@supabase/ssr/-/ssr-0.5.2.tgz",
++      "integrity": "sha512-n3plRhr2Bs8Xun1o4S3k1CDv17iH5QY9YcoEvXX3bxV1/5XSasA0mNXYycFmADIdtdE6BG9MRjP5CGIs8qxC8A==",
++      "license": "MIT",
++      "dependencies": {
++        "@types/cookie": "^0.6.0",
++        "cookie": "^0.7.0"
++      },
++      "peerDependencies": {
++        "@supabase/supabase-js": "^2.43.4"
++      }
++    },
++    "node_modules/@supabase/storage-js": {
++      "version": "2.112.4",
++      "resolved": "https://registry.npmjs.org/@supabase/storage-js/-/storage-js-2.112.4.tgz",
++      "integrity": "sha512-lQ0JemuTlMIXVKgSci1qez8yPnM5hyDngeAfEBjZS2Om4D+Cus0EE5BE6glFobrxdyii1OF4UzWfF0zcQgDq5A==",
++      "license": "MIT",
++      "dependencies": {
++        "iceberg-js": "^0.8.1",
++        "tslib": "2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@supabase/supabase-js": {
++      "version": "2.112.4",
++      "resolved": "https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.112.4.tgz",
++      "integrity": "sha512-UiCX1udlFY1fQQrO7Z3GU7obQsju0w5Vk9mOOwalfo/+Gy+tahWVenSSuu5E/GTy/q//HxvGv2IrCdW66/61kw==",
++      "license": "MIT",
++      "dependencies": {
++        "@supabase/auth-js": "2.112.4",
++        "@supabase/functions-js": "2.112.4",
++        "@supabase/postgrest-js": "2.112.4",
++        "@supabase/realtime-js": "2.112.4",
++        "@supabase/storage-js": "2.112.4"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      },
++      "peerDependencies": {
++        "@opentelemetry/api": ">=1.0.0"
++      },
++      "peerDependenciesMeta": {
++        "@opentelemetry/api": {
++          "optional": true
++        }
++      }
++    },
+     "node_modules/@swc/helpers": {
+       "version": "0.5.23",
+       "resolved": "https://registry.npmjs.org/@swc/helpers/-/helpers-0.5.23.tgz",
+@@ -1615,6 +1722,12 @@
+         "tslib": "^2.4.0"
+       }
+     },
++    "node_modules/@types/cookie": {
++      "version": "0.6.0",
++      "resolved": "https://registry.npmjs.org/@types/cookie/-/cookie-0.6.0.tgz",
++      "integrity": "sha512-4Kh9a6B2bQciAhf7FSuMRRkUWecJgJu9nPnx3yzpsfXX/c50REIqpHY4C82bXP90qrLtXtkDxTZosYO3UpOwlA==",
++      "license": "MIT"
++    },
+     "node_modules/@types/estree": {
+       "version": "1.0.9",
+       "resolved": "https://registry.npmjs.org/@types/estree/-/estree-1.0.9.tgz",
+@@ -2785,6 +2898,15 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/cookie": {
++      "version": "0.7.2",
++      "resolved": "https://registry.npmjs.org/cookie/-/cookie-0.7.2.tgz",
++      "integrity": "sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
+     "node_modules/cross-spawn": {
+       "version": "7.0.6",
+       "resolved": "https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz",
+@@ -4073,6 +4195,15 @@
+         "hermes-estree": "0.25.1"
+       }
+     },
++    "node_modules/iceberg-js": {
++      "version": "0.8.1",
++      "resolved": "https://registry.npmjs.org/iceberg-js/-/iceberg-js-0.8.1.tgz",
++      "integrity": "sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=20.0.0"
++      }
++    },
+     "node_modules/ignore": {
+       "version": "5.3.2",
+       "resolved": "https://registry.npmjs.org/ignore/-/ignore-5.3.2.tgz",
+diff --git a/package.json b/package.json
+index c46c75d..998aa01 100644
+--- a/package.json
++++ b/package.json
+@@ -6,9 +6,12 @@
+     "dev": "next dev",
+     "build": "next build",
+     "start": "next start",
+-    "lint": "eslint"
++    "lint": "eslint",
++    "typecheck": "tsc --noEmit"
+   },
+   "dependencies": {
++    "@supabase/ssr": "^0.5.2",
++    "@supabase/supabase-js": "^2.112.4",
+     "next": "16.3.4",
+     "react": "19.2.8",
+     "react-dom": "19.2.8"
+diff --git a/src/app/globals.css b/src/app/globals.css
+index 43ea53a..2d5f5d6 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -1,12 +1,74 @@
++@import "tailwindcss" source(none);
+ @import "../styles/tokens.css";
+ 
+-@tailwind base;
+-@tailwind components;
+-@tailwind utilities;
++/* Scan source only. Tailwind v4 otherwise scans every non-ignored file in the
++   repo, and class names quoted in docs/*.md end up compiled into the bundle. */
++@source "../**/*.{ts,tsx}";
++
++/* ---------------------------------------------------------------------------
++   Tailwind reads the RECESS tokens here. `inline` matters: it substitutes the
++   variable into each utility instead of emitting a copy, so `bg-ground` on a
++   night Surface resolves against that element's --ground, not the root's.
++
++   Adding a colour means editing tokens.css, not this block, and never writing
++   an arbitrary value like bg-[#e63368] in a component. ESLint blocks raw hex.
++   --------------------------------------------------------------------------- */
++@theme inline {
++  --color-paper: var(--paper);
++  --color-paper-deep: var(--paper-deep);
++  --color-ink: var(--ink);
++  --color-ink-soft: var(--ink-soft);
++  --color-aubergine: var(--aubergine);
++  --color-aubergine-lift: var(--aubergine-lift);
++  --color-pink: var(--pink);
++  --color-pink-deep: var(--pink-deep);
++  --color-amber: var(--amber);
++
++  /* Semantic. These follow whichever Surface the element sits inside. */
++  --color-ground: var(--ground);
++  --color-ground-lift: var(--ground-lift);
++  --color-fg: var(--fg);
++  --color-fg-soft: var(--fg-soft);
++  --color-fg-line: var(--fg-line);
++  --color-fg-faint: var(--fg-faint);
++  --color-fg-muted: var(--fg-muted);
++  --color-fg-placeholder: var(--fg-placeholder);
++  --color-field: var(--field-fill);
++
++  --font-display: var(--font-display-family);
++  --font-ui: var(--font-ui-family);
++
++  /* 12 14 16 20 28 40 64 96 */
++  --text-rc-xs: 0.75rem;
++  --text-rc-xs--line-height: 1.4;
++  --text-rc-sm: 0.875rem;
++  --text-rc-sm--line-height: 1.5;
++  --text-rc-base: 1rem;
++  --text-rc-base--line-height: 1.55;
++  --text-rc-md: 1.25rem;
++  --text-rc-md--line-height: 1.3;
++  --text-rc-lg: 1.75rem;
++  --text-rc-lg--line-height: 1.15;
++  --text-rc-xl: 2.5rem;
++  --text-rc-xl--line-height: 0.95;
++  --text-rc-2xl: 4rem;
++  --text-rc-2xl--line-height: 0.9;
++  --text-rc-3xl: 6rem;
++  --text-rc-3xl--line-height: 0.86;
++
++  --radius-rc: var(--rc-radius);
++  --radius-rc-sm: var(--rc-radius-sm);
++
++  --spacing-tap: var(--rc-tap);
++
++  /* The physical press on primary buttons. */
++  --shadow-press: 0 3px 0 var(--pink-deep);
++  --shadow-press-down: 0 0 0 var(--pink-deep);
++}
+ 
+ @layer base {
+   html {
+-    font-family: var(--font-ui), system-ui, sans-serif;
++    font-family: var(--font-ui-family), system-ui, sans-serif;
+   }
+ 
+   body {
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+index c7fca4f..317ad10 100644
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -10,13 +10,13 @@ import "./globals.css";
+ const display = Anton({
+   subsets: ["latin"],
+   weight: "400",
+-  variable: "--font-display",
++  variable: "--font-display-family",
+   display: "swap",
+ });
+ 
+ const ui = Inter({
+   subsets: ["latin"],
+-  variable: "--font-ui",
++  variable: "--font-ui-family",
+   display: "swap",
+ });
+ 
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index ae52348..59a3371 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -72,7 +72,7 @@ export default function FoundationCheck() {
+             ].map((token) => (
+               <div key={token} className="flex flex-col items-center gap-1">
+                 <span
+-                  className="block h-12 w-12 rounded-rc-sm border border-ink/15"
++                  className="block h-12 w-12 rounded-rc-sm border border-fg-faint"
+                   style={{ backgroundColor: `var(--${token})` }}
+                 />
+                 <span className="text-rc-xs text-fg-soft">{token}</span>
+diff --git a/src/components/ui/Button.tsx b/src/components/ui/Button.tsx
+index e5a66eb..f0d7b4c 100644
+--- a/src/components/ui/Button.tsx
++++ b/src/components/ui/Button.tsx
+@@ -12,9 +12,9 @@ const variants: Record<ButtonVariant, string> = {
+   primary:
+     "w-full min-h-tap px-6 bg-pink text-paper font-display text-rc-md shadow-press " +
+     "active:translate-y-[3px] active:shadow-press-down " +
+-    "aria-disabled:bg-fg/10 aria-disabled:text-fg-soft aria-disabled:shadow-none aria-disabled:pointer-events-none",
++    "aria-disabled:bg-fg-muted aria-disabled:text-fg-soft aria-disabled:shadow-none aria-disabled:pointer-events-none",
+   secondary:
+-    "w-full min-h-tap px-6 border-[1.5px] border-fg/20 text-fg font-display text-rc-md " +
++    "w-full min-h-tap px-6 border-[1.5px] border-fg-line text-fg font-display text-rc-md " +
+     "active:translate-y-[2px] " +
+     "aria-disabled:opacity-50 aria-disabled:pointer-events-none",
+   ghost:
+diff --git a/src/components/ui/Field.tsx b/src/components/ui/Field.tsx
+index 32bd767..340cae1 100644
+--- a/src/components/ui/Field.tsx
++++ b/src/components/ui/Field.tsx
+@@ -35,9 +35,9 @@ export function Field({ id, label, hint, error, ...input }: Props) {
+         aria-invalid={error ? true : undefined}
+         aria-describedby={describedBy || undefined}
+         className={
+-          "w-full min-h-tap rounded-rc-sm border-[1.5px] bg-ground-lift/45 px-4 " +
+-          "text-rc-base text-fg placeholder:text-fg-soft/70 " +
+-          (error ? "border-pink-deep" : "border-fg/20 focus:border-pink")
++          "w-full min-h-tap rounded-rc-sm border-[1.5px] bg-field px-4 " +
++          "text-rc-base text-fg placeholder:text-fg-placeholder " +
++          (error ? "border-pink-deep" : "border-fg-line focus:border-pink")
+         }
+         {...input}
+       />
+diff --git a/src/styles/tokens.css b/src/styles/tokens.css
+index df7896e..7582b67 100644
+--- a/src/styles/tokens.css
++++ b/src/styles/tokens.css
+@@ -1,49 +1,46 @@
+ /* ===========================================================================
+    RECESS design tokens — the brand's source of truth.
+ 
+-   These are plain CSS custom properties on purpose. Tailwind consumes them;
+-   it does not own them. If Tailwind is ever replaced, the design system
+-   survives this file intact.
+-
+-   Values are stored as space-separated RGB channels so Tailwind's alpha
+-   modifiers (bg-pink/40) work. The `--x` variables are derived from the
+-   channels, so there is exactly one place to change a colour.
++   Plain CSS custom properties on purpose. Tailwind consumes them (see the
++   @theme block in src/app/globals.css); it does not own them. If Tailwind
++   were replaced tomorrow, the design system survives this file intact.
+    =========================================================================== */
+ 
+ :root {
+   /* --- ground: before the event ------------------------------------ */
+-  --paper-rgb:          244 237 224;   /* #f4ede0 */
+-  --paper-deep-rgb:     234 224 206;   /* #eae0ce */
+-  --ink-rgb:             27  18  25;   /* #1b1219 */
+-  --ink-soft-rgb:        90  74  82;   /* #5a4a52 */
++  --paper: #f4ede0;
++  --paper-deep: #eae0ce;
++  --ink: #1b1219;
++  --ink-soft: #5a4a52;
+ 
+   /* --- ground: event night ----------------------------------------- */
+-  --aubergine-rgb:       36  16  42;   /* #24102a */
+-  --aubergine-lift-rgb:  51  26  56;   /* #331a38 */
+-  --night-ink-rgb:      244 237 224;   /* #f4ede0 */
+-  --night-ink-soft-rgb: 185 163 189;   /* #b9a3bd */
++  --aubergine: #24102a;
++  --aubergine-lift: #331a38;
++  --night-ink: #f4ede0;
++  --night-ink-soft: #b9a3bd;
+ 
+   /* --- accent ------------------------------------------------------- */
+-  --pink-rgb:           230  51 104;   /* #e63368 */
+-  --pink-deep-rgb:      192  35  79;   /* #c0234f */
+-  --amber-rgb:          240 169  60;   /* #f0a93c */
+-
+-  --paper:          rgb(var(--paper-rgb));
+-  --paper-deep:     rgb(var(--paper-deep-rgb));
+-  --ink:            rgb(var(--ink-rgb));
+-  --ink-soft:       rgb(var(--ink-soft-rgb));
+-  --aubergine:      rgb(var(--aubergine-rgb));
+-  --aubergine-lift: rgb(var(--aubergine-lift-rgb));
+-  --pink:           rgb(var(--pink-rgb));
+-  --pink-deep:      rgb(var(--pink-deep-rgb));
+-  --amber:          rgb(var(--amber-rgb));
++  --pink: #e63368;
++  --pink-deep: #c0234f;
++  --amber: #f0a93c;
+ 
+   /* --- semantic surface variables -----------------------------------
+      Only <Surface> rewrites these. Nothing else should touch them.     */
+-  --ground-rgb:      var(--paper-rgb);
+-  --ground-lift-rgb: var(--paper-deep-rgb);
+-  --fg-rgb:          var(--ink-rgb);
+-  --fg-soft-rgb:     var(--ink-soft-rgb);
++  --ground: var(--paper);
++  --ground-lift: var(--paper-deep);
++  --fg: var(--ink);
++  --fg-soft: var(--ink-soft);
++
++  /* --- derived tints --------------------------------------------------
++     Every translucent value in RECESS is named here rather than written as
++     an ad-hoc alpha modifier (border-fg/20) at each call site. One hairline
++     colour, defined once, instead of 20% here and 15% three files away.
++     These follow the active Surface because they are built from --fg.      */
++  --fg-line: color-mix(in oklab, var(--fg) 20%, transparent);
++  --fg-faint: color-mix(in oklab, var(--fg) 15%, transparent);
++  --fg-muted: color-mix(in oklab, var(--fg) 10%, transparent);
++  --fg-placeholder: color-mix(in oklab, var(--fg-soft) 70%, transparent);
++  --field-fill: color-mix(in oklab, var(--ground-lift) 45%, transparent);
+ 
+   /* --- texture -------------------------------------------------------
+      One variable. The more operational a screen is, the lower it goes:
+@@ -51,17 +48,17 @@
+   --grain: 0.06;
+ 
+   /* --- geometry ------------------------------------------------------ */
+-  --radius-rc: 10px;
+-  --radius-sm: 6px;
+-  --tap: 56px;
++  --rc-radius: 10px;
++  --rc-radius-sm: 6px;
++  --rc-tap: 3.5rem;
+ }
+ 
+ /* Ground switching. Cream before the event, aubergine from check-in on. */
+ [data-ground="night"] {
+-  --ground-rgb:      var(--aubergine-rgb);
+-  --ground-lift-rgb: var(--aubergine-lift-rgb);
+-  --fg-rgb:          var(--night-ink-rgb);
+-  --fg-soft-rgb:     var(--night-ink-soft-rgb);
++  --ground: var(--aubergine);
++  --ground-lift: var(--aubergine-lift);
++  --fg: var(--night-ink);
++  --fg-soft: var(--night-ink-soft);
+ }
+ 
+ [data-grain="high"] { --grain: 0.12; }

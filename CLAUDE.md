@@ -58,8 +58,12 @@ product behaviour.
 - `src/components` contains no arithmetic. If something computes a point
   value, a rank, or a state decision, it belongs in the database or in
   `src/domain`.
-- Brand values live in `src/styles/tokens.css`. Tailwind consumes them.
-  Never write an arbitrary value like `bg-[#e63368]` — ESLint blocks raw hex.
+- Brand values live in `src/styles/tokens.css`. Tailwind (v4) consumes them
+  via the `@theme inline` block in `src/app/globals.css`. Never write an
+  arbitrary colour value in a component — ESLint blocks raw hex. Translucent
+  values get a named token, not an alpha modifier at the call site.
+- Tailwind's source scanning is pinned to `src/**/*.{ts,tsx}`. Without that it
+  scans these Markdown files and compiles class names quoted in prose.
 
 ## Layout
 

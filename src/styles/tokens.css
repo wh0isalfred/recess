@@ -1,49 +1,46 @@
 /* ===========================================================================
    RECESS design tokens — the brand's source of truth.
 
-   These are plain CSS custom properties on purpose. Tailwind consumes them;
-   it does not own them. If Tailwind is ever replaced, the design system
-   survives this file intact.
-
-   Values are stored as space-separated RGB channels so Tailwind's alpha
-   modifiers (bg-pink/40) work. The `--x` variables are derived from the
-   channels, so there is exactly one place to change a colour.
+   Plain CSS custom properties on purpose. Tailwind consumes them (see the
+   @theme block in src/app/globals.css); it does not own them. If Tailwind
+   were replaced tomorrow, the design system survives this file intact.
    =========================================================================== */
 
 :root {
   /* --- ground: before the event ------------------------------------ */
-  --paper-rgb:          244 237 224;   /* #f4ede0 */
-  --paper-deep-rgb:     234 224 206;   /* #eae0ce */
-  --ink-rgb:             27  18  25;   /* #1b1219 */
-  --ink-soft-rgb:        90  74  82;   /* #5a4a52 */
+  --paper: #f4ede0;
+  --paper-deep: #eae0ce;
+  --ink: #1b1219;
+  --ink-soft: #5a4a52;
 
   /* --- ground: event night ----------------------------------------- */
-  --aubergine-rgb:       36  16  42;   /* #24102a */
-  --aubergine-lift-rgb:  51  26  56;   /* #331a38 */
-  --night-ink-rgb:      244 237 224;   /* #f4ede0 */
-  --night-ink-soft-rgb: 185 163 189;   /* #b9a3bd */
+  --aubergine: #24102a;
+  --aubergine-lift: #331a38;
+  --night-ink: #f4ede0;
+  --night-ink-soft: #b9a3bd;
 
   /* --- accent ------------------------------------------------------- */
-  --pink-rgb:           230  51 104;   /* #e63368 */
-  --pink-deep-rgb:      192  35  79;   /* #c0234f */
-  --amber-rgb:          240 169  60;   /* #f0a93c */
-
-  --paper:          rgb(var(--paper-rgb));
-  --paper-deep:     rgb(var(--paper-deep-rgb));
-  --ink:            rgb(var(--ink-rgb));
-  --ink-soft:       rgb(var(--ink-soft-rgb));
-  --aubergine:      rgb(var(--aubergine-rgb));
-  --aubergine-lift: rgb(var(--aubergine-lift-rgb));
-  --pink:           rgb(var(--pink-rgb));
-  --pink-deep:      rgb(var(--pink-deep-rgb));
-  --amber:          rgb(var(--amber-rgb));
+  --pink: #e63368;
+  --pink-deep: #c0234f;
+  --amber: #f0a93c;
 
   /* --- semantic surface variables -----------------------------------
      Only <Surface> rewrites these. Nothing else should touch them.     */
-  --ground-rgb:      var(--paper-rgb);
-  --ground-lift-rgb: var(--paper-deep-rgb);
-  --fg-rgb:          var(--ink-rgb);
-  --fg-soft-rgb:     var(--ink-soft-rgb);
+  --ground: var(--paper);
+  --ground-lift: var(--paper-deep);
+  --fg: var(--ink);
+  --fg-soft: var(--ink-soft);
+
+  /* --- derived tints --------------------------------------------------
+     Every translucent value in RECESS is named here rather than written as
+     an ad-hoc alpha modifier (border-fg/20) at each call site. One hairline
+     colour, defined once, instead of 20% here and 15% three files away.
+     These follow the active Surface because they are built from --fg.      */
+  --fg-line: color-mix(in oklab, var(--fg) 20%, transparent);
+  --fg-faint: color-mix(in oklab, var(--fg) 15%, transparent);
+  --fg-muted: color-mix(in oklab, var(--fg) 10%, transparent);
+  --fg-placeholder: color-mix(in oklab, var(--fg-soft) 70%, transparent);
+  --field-fill: color-mix(in oklab, var(--ground-lift) 45%, transparent);
 
   /* --- texture -------------------------------------------------------
      One variable. The more operational a screen is, the lower it goes:
@@ -51,17 +48,17 @@
   --grain: 0.06;
 
   /* --- geometry ------------------------------------------------------ */
-  --radius-rc: 10px;
-  --radius-sm: 6px;
-  --tap: 56px;
+  --rc-radius: 10px;
+  --rc-radius-sm: 6px;
+  --rc-tap: 3.5rem;
 }
 
 /* Ground switching. Cream before the event, aubergine from check-in on. */
 [data-ground="night"] {
-  --ground-rgb:      var(--aubergine-rgb);
-  --ground-lift-rgb: var(--aubergine-lift-rgb);
-  --fg-rgb:          var(--night-ink-rgb);
-  --fg-soft-rgb:     var(--night-ink-soft-rgb);
+  --ground: var(--aubergine);
+  --ground-lift: var(--aubergine-lift);
+  --fg: var(--night-ink);
+  --fg-soft: var(--night-ink-soft);
 }
 
 [data-grain="high"] { --grain: 0.12; }

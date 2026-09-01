@@ -12,9 +12,9 @@ const variants: Record<ButtonVariant, string> = {
   primary:
     "w-full min-h-tap px-6 bg-pink text-paper font-display text-rc-md shadow-press " +
     "active:translate-y-[3px] active:shadow-press-down " +
-    "aria-disabled:bg-fg/10 aria-disabled:text-fg-soft aria-disabled:shadow-none aria-disabled:pointer-events-none",
+    "aria-disabled:bg-fg-muted aria-disabled:text-fg-soft aria-disabled:shadow-none aria-disabled:pointer-events-none",
   secondary:
-    "w-full min-h-tap px-6 border-[1.5px] border-fg/20 text-fg font-display text-rc-md " +
+    "w-full min-h-tap px-6 border-[1.5px] border-fg-line text-fg font-display text-rc-md " +
     "active:translate-y-[2px] " +
     "aria-disabled:opacity-50 aria-disabled:pointer-events-none",
   ghost:

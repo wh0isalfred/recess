@@ -485,7 +485,8 @@ is exactly how they drift apart.
 
 The engineering constraint that stays here: brand values live in
 `src/styles/tokens.css` as CSS custom properties. Tailwind consumes them via
-`tailwind.config.ts`. Components use named utilities (`bg-pink`, `text-fg`,
+the `@theme inline` block in `src/app/globals.css`. Components use named
+utilities (`bg-pink`, `text-fg`,
 `min-h-tap`), never arbitrary values. ESLint blocks raw hex.
 
 ## 8. Risks and contradictions

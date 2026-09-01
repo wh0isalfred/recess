@@ -35,9 +35,9 @@ export function Field({ id, label, hint, error, ...input }: Props) {
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy || undefined}
         className={
-          "w-full min-h-tap rounded-rc-sm border-[1.5px] bg-ground-lift/45 px-4 " +
-          "text-rc-base text-fg placeholder:text-fg-soft/70 " +
-          (error ? "border-pink-deep" : "border-fg/20 focus:border-pink")
+          "w-full min-h-tap rounded-rc-sm border-[1.5px] bg-field px-4 " +
+          "text-rc-base text-fg placeholder:text-fg-placeholder " +
+          (error ? "border-pink-deep" : "border-fg-line focus:border-pink")
         }
         {...input}
       />

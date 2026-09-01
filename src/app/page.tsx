@@ -72,7 +72,7 @@ export default function FoundationCheck() {
             ].map((token) => (
               <div key={token} className="flex flex-col items-center gap-1">
                 <span
-                  className="block h-12 w-12 rounded-rc-sm border border-ink/15"
+                  className="block h-12 w-12 rounded-rc-sm border border-fg-faint"
                   style={{ backgroundColor: `var(--${token})` }}
                 />
                 <span className="text-rc-xs text-fg-soft">{token}</span>

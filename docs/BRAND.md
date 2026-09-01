@@ -24,7 +24,8 @@ UI, generic SaaS, overly maximalist.
 ## Tokens
 
 Defined once in `src/styles/tokens.css` as CSS custom properties. Tailwind
-consumes them through `tailwind.config.ts`. **The tokens are the source of
+consumes them through the `@theme inline` block in `src/app/globals.css`.
+**The tokens are the source of
 truth; Tailwind is the implementation.** If Tailwind were removed tomorrow,
 the design system would survive that file intact.
 
@@ -40,9 +41,10 @@ the design system would survive that file intact.
 | `--pink-deep` | `#c0234f` | pressed state, button shadow |
 | `--amber` | `#f0a93c` | secondary accent, focus ring, confetti |
 
-Colours are stored as RGB channel triplets (`--pink-rgb: 230 51 104`) with the
-plain variables derived from them, so Tailwind's alpha modifiers (`bg-pink/40`)
-work off the same single source.
+Every translucent value is a named token too — `--fg-line`, `--fg-muted`,
+`--field-fill` — rather than an alpha modifier written at each call site. One
+hairline colour defined once beats 20% here and 15% three files away. Because
+those tints are built from `--fg`, they follow the active Surface as well.
 
 Two grounds, one accent that works on both. Hot pink on cream is loud; hot
 pink on aubergine is luminous.
