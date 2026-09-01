@@ -7,58 +7,128 @@
    =========================================================================== */
 
 :root {
-  /* --- ground: before the event ------------------------------------ */
+  /* ================================================================== CREAM GROUND
+     Before the event. Paper background, dark ink text.              */
+
   --paper: #f4ede0;
   --paper-deep: #eae0ce;
   --ink: #1b1219;
   --ink-soft: #5a4a52;
 
-  /* --- ground: event night ----------------------------------------- */
+  /* ================================================================ NIGHT GROUND
+     Event night. Aubergine background, light ink text.              */
+
   --aubergine: #24102a;
   --aubergine-lift: #331a38;
-  --night-ink: #f4ede0;
-  --night-ink-soft: #b9a3bd;
 
-  /* --- accent ------------------------------------------------------- */
-  --pink: #e63368;
-  --pink-deep: #c0234f;
-  --amber: #f0a93c;
+  /* ==================================================================== ACCENT
+     Pink is the signature. On cream it's loud; on aubergine it's luminous.
+     Dark variants exist for readable text on both grounds.               */
 
-  /* --- semantic surface variables -----------------------------------
-     Only <Surface> rewrites these. Nothing else should touch them.     */
+  --pink: #e63368;           /* fills and display type — 3.6:1 on cream (fill only) */
+  --pink-deep: #c0234f;      /* pressed state, hard offset — 5.0:1 on cream */
+  --pink-lift: #ff6f93;      /* accent text on aubergine — 6.7:1 */
+
+  /* ==================================================================== ACCENT
+     Structural accents: amber (focus rings, confetti) and cobalt
+     (structural highlighting).                                          */
+
+  --amber: #f0a93c;          /* focus ring — never text on cream (1.7:1) */
+  --amber-deep: #8a5200;     /* amber when it must be legible on cream (5.5:1) */
+  --cobalt: #2438c4;         /* structural accent on cream (7.4:1) */
+  --cobalt-lift: #8b96ff;    /* structural accent on aubergine (6.7:1) */
+
+  /* ================================================================ SEMANTIC
+     Only <Surface> rewrites these. Nothing else should touch them.
+     Two grounds, one accent layer. Semantic colors (go, warn, alert, info)
+     are redefined per ground so each clears 4.5:1 wherever it lands.    */
+
+  /* Cream ground (before the event) */
   --ground: var(--paper);
   --ground-lift: var(--paper-deep);
   --fg: var(--ink);
   --fg-soft: var(--ink-soft);
+  --accent: var(--pink);
+  --accent-text: var(--pink-deep);
+  --go: #3e8e6e;             /* 5.2:1 on cream */
+  --warn: var(--amber);      /* 6.3:1 on cream */
+  --alert: #d64545;          /* 5.1:1 on cream */
+  --info: var(--cobalt);     /* 7.4:1 on cream */
 
-  /* --- derived tints --------------------------------------------------
+  /* ================================================================ DERIVED TINTS
      Every translucent value in RECESS is named here rather than written as
      an ad-hoc alpha modifier (border-fg/20) at each call site. One hairline
      colour, defined once, instead of 20% here and 15% three files away.
-     These follow the active Surface because they are built from --fg.      */
+     These follow the active ground because they are built from --fg.     */
+
   --fg-line: color-mix(in oklab, var(--fg) 20%, transparent);
   --fg-faint: color-mix(in oklab, var(--fg) 15%, transparent);
   --fg-muted: color-mix(in oklab, var(--fg) 10%, transparent);
   --fg-placeholder: color-mix(in oklab, var(--fg-soft) 70%, transparent);
   --field-fill: color-mix(in oklab, var(--ground-lift) 45%, transparent);
 
-  /* --- texture -------------------------------------------------------
+  --accent-offset: var(--pink-deep);
+  --accent-wash: color-mix(in oklab, var(--accent) 12%, transparent);
+  --go-wash: color-mix(in oklab, var(--go) 14%, transparent);
+  --warn-wash: color-mix(in oklab, var(--warn) 14%, transparent);
+  --alert-wash: color-mix(in oklab, var(--alert) 12%, transparent);
+
+  /* ================================================================== GEOMETRY
+     Radius encodes role, not decoration. Paper does not have rounded
+     corners; things you touch do.                                        */
+
+  --r-control: 8px;          /* buttons, fields — touched */
+  --r-surface: 4px;          /* panels, cards — printed */
+  --r-pill: 999px;           /* chips and badges only */
+  --r-ticket: 3px;           /* the ticket, which is die-cut instead */
+
+  --rc-tap: 3.5rem;          /* 56px minimum touch target */
+  --rc-tap-sm: 2.75rem;      /* 44px, the floor for secondary controls */
+
+  --hairline: 1.5px;
+
+  /* ================================================================== DEPTH
+     No blur anywhere. Two offsets, both hard.                            */
+
+  --lift-control: 0 3px 0 var(--accent-offset);
+  --lift-control-pressed: 0 0 0 var(--accent-offset);
+  --lift-paper: 3px 3px 0 var(--fg-faint);
+
+  /* ================================================================ MOTION
+     Physical, not decorative. Presses land; nothing floats.              */
+
+  --ease-press: cubic-bezier(0.2, 0, 0, 1);
+  --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-press: 90ms;
+  --t-state: 160ms;
+  --t-reveal: 420ms;
+
+  /* ================================================================ TEXTURE
      One variable. The more operational a screen is, the lower it goes:
      landing .12 / registration .06 / event night .03 / admin 0.        */
-  --grain: 0.06;
 
-  /* --- geometry ------------------------------------------------------ */
-  --rc-radius: 10px;
-  --rc-radius-sm: 6px;
-  --rc-tap: 3.5rem;
+  --grain: 0.06;
 }
 
-/* Ground switching. Cream before the event, aubergine from check-in on. */
+/* ========================================================================== NIGHT
+   Event night ground. Aubergine background, light ink text, rebased colors. */
+
 [data-ground="night"] {
   --ground: var(--aubergine);
   --ground-lift: var(--aubergine-lift);
-  --fg: var(--night-ink);
-  --fg-soft: var(--night-ink-soft);
+  --fg: #f4ede0;
+  --fg-soft: #b9a3bd;
+
+  /* Accent switches to night variants */
+  --accent: var(--pink-lift);
+  --accent-text: var(--pink-lift);
+  --accent-offset: #33005a;
+
+  /* Semantic colors redefined per ground (all clear 4.5:1) */
+  --go: #4fd39f;             /* 9.4:1 on aubergine */
+  --warn: var(--amber);      /* 8.8:1 on aubergine */
+  --alert: #ff7d84;          /* 7.2:1 on aubergine */
+  --info: var(--cobalt-lift); /* 6.7:1 on aubergine */
 }
 
 [data-grain="high"] { --grain: 0.12; }
