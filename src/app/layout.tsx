@@ -1,20 +1,24 @@
 import type { Metadata } from "next";
-import { Anton, Inter } from "next/font/google";
+import { Archivo, Archivo_Black } from "next/font/google";
 import "./globals.css";
 
 /**
- * Display type stands in for the roughened condensed face in the approved
- * screens. Anton is the closest free match and is NOT final — swapping it is
- * this line plus --font-display.
+ * One superfamily, two roles.
+ *
+ * Archivo Black carries the poster voice — RECESS, CHECK IN, ROOM 03, #024 —
+ * and Archivo carries everything a person actually has to read. They share a
+ * skeleton, so the interface reads as one voice rather than a display face
+ * arguing with a body face. RECESS gets its personality from scale, colour
+ * and paper, which leaves the typography free to be disciplined.
  */
-const display = Anton({
+const display = Archivo_Black({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-display-family",
   display: "swap",
 });
 
-const ui = Inter({
+const ui = Archivo({
   subsets: ["latin"],
   variable: "--font-ui-family",
   display: "swap",

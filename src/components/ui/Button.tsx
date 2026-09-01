@@ -1,60 +1,97 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+export type ButtonSize = "lg" | "sm";
 
 const base =
-  "relative z-10 inline-flex items-center justify-between gap-4 rounded-rc-sm " +
-  "transition-[transform,box-shadow,background-color] duration-100 ease-out " +
-  "disabled:cursor-not-allowed";
+  "relative z-10 inline-flex items-center justify-center gap-3 font-display " +
+  "transition-[transform,box-shadow,background-color,color] " +
+  "duration-[var(--t-press)] ease-[var(--ease-press)] " +
+  "aria-disabled:pointer-events-none aria-disabled:shadow-none";
+
+const sizes: Record<ButtonSize, string> = {
+  lg: "min-h-tap w-full px-6 text-rc-md",
+  sm: "min-h-tap-sm px-5 text-rc-base",
+};
 
 const variants: Record<ButtonVariant, string> = {
+  // The signature control. Pink fill, cream label, hard offset that collapses
+  // under the thumb. Label is display type at 20px so the 3.6:1 fill/label
+  // pair clears WCAG large-text.
   primary:
-    "w-full min-h-tap px-6 bg-pink text-paper font-display text-rc-md shadow-press " +
-    "active:translate-y-[3px] active:shadow-press-down " +
-    "aria-disabled:bg-fg-muted aria-disabled:text-fg-soft aria-disabled:shadow-none aria-disabled:pointer-events-none",
+    "rounded-control bg-accent text-paper shadow-control " +
+    "active:translate-y-[3px] active:shadow-control-pressed " +
+    "aria-disabled:bg-fg-muted aria-disabled:text-fg-soft",
   secondary:
-    "w-full min-h-tap px-6 border-[1.5px] border-fg-line text-fg font-display text-rc-md " +
-    "active:translate-y-[2px] " +
-    "aria-disabled:opacity-50 aria-disabled:pointer-events-none",
+    "rounded-control border-[length:var(--hairline)] border-fg-line text-fg " +
+    "active:translate-y-[2px] active:bg-fg-muted " +
+    "aria-disabled:opacity-50",
+  danger:
+    "rounded-control bg-alert text-paper " +
+    "active:translate-y-[2px] aria-disabled:opacity-50",
+  // Not a button pretending to be a link. A link that happens to be tappable.
   ghost:
-    "px-0 py-2 text-fg-soft text-rc-sm underline-offset-4 hover:underline " +
-    "aria-disabled:opacity-50 aria-disabled:pointer-events-none",
+    "min-h-tap-sm px-0 font-ui text-rc-sm text-fg-soft underline " +
+    "decoration-fg-line underline-offset-4 hover:decoration-current " +
+    "aria-disabled:opacity-50",
 };
 
 type Props = {
   children: ReactNode;
   variant?: ButtonVariant;
+  size?: ButtonSize;
   href?: string;
   disabled?: boolean;
+  /** Shows a spinner and blocks repeat presses. Every write in RECESS has one. */
   loading?: boolean;
+  loadingLabel?: string;
+  /** Only on controls that move the night forward. Not decoration. */
   arrow?: boolean;
   type?: "button" | "submit";
   onClick?: () => void;
 };
 
-/**
- * Press is physical, not a hover lift — players are on touch screens.
- * `loading` is a first-class state because every important write in RECESS
- * has to show loading / success / failure / retry.
- */
+function Spinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block size-4 animate-spin rounded-pill border-2 border-current border-t-transparent motion-reduce:animate-none"
+    />
+  );
+}
+
 export function Button({
   children,
   variant = "primary",
+  size = "lg",
   href,
   disabled = false,
   loading = false,
+  loadingLabel = "Sending",
   arrow = false,
   type = "button",
   onClick,
 }: Props) {
   const inert = disabled || loading;
-  const className = `${base} ${variants[variant]}`;
+  const className = [
+    base,
+    variant === "ghost" ? "" : sizes[size],
+    variants[variant],
+    variant === "primary" || variant === "secondary" ? "justify-between" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
-  const content = (
+  const content = loading ? (
     <>
-      <span>{loading ? "SENDING\u2026" : children}</span>
-      {arrow && !loading ? <span aria-hidden="true">&rarr;</span> : null}
+      <span>{loadingLabel}</span>
+      <Spinner />
+    </>
+  ) : (
+    <>
+      <span>{children}</span>
+      {arrow ? <span aria-hidden="true">&rarr;</span> : null}
     </>
   );
 
