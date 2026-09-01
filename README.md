@@ -83,6 +83,9 @@ See [`docs/BRAND.md`](docs/BRAND.md) for the full visual and interaction system.
 
 The current focus is the first production-ready RECESS event flow:
 
+- [x] Project foundation (Phase 0)
+- [ ] Database and domain model
+- [ ] Design system
 - [ ] Public landing experience
 - [ ] Player registration
 - [ ] Event Pass
@@ -96,7 +99,26 @@ The current focus is the first production-ready RECESS event flow:
 
 ## Development
 
-Local development instructions will be added once the initial application scaffold and environment configuration are complete.
+```bash
+git clone https://github.com/wh0isalfred/recess.git
+cd recess
+npm install
+cp .env.example .env.local   # fill in your Supabase URL and anon key
+npm run dev
+```
+
+Other scripts: `npm run build`, `npm run lint`, `npm run typecheck`.
+
+The design system lives in `src/styles/tokens.css` as CSS custom properties.
+Tailwind consumes those tokens; it is not their source of truth. Components
+use named utilities (`bg-pink`, `text-fg`, `min-h-tap`) — raw hex values are
+blocked by ESLint.
+
+## Contributing
+
+RECESS is built strictly one phase at a time. Read
+[`docs/ROADMAP.md`](docs/ROADMAP.md) before starting anything, and
+[`CLAUDE.md`](CLAUDE.md) if you are an AI agent.
 
 ---
 
