@@ -1,0 +1,343 @@
+/* ===========================================================================
+   Screens 01 Arrival + 02 Landing — the two states of `/`.
+
+   Not two routes. The artwork layer crossfades and the masthead settles from
+   its arrival position into its landing position; everything else fades up
+   underneath. The splash is gated on `html[data-arrival="fresh"]`, set before
+   paint by the guard script in src/app/page.tsx, which keeps the whole thing
+   free of hydration mismatch: the server always renders `data-phase="splash"`
+   and a returning visitor simply never matches the splash rules.
+
+   Every measurement below is taken off the supplied references, which depict
+   a 390 x 690 viewport. Screen-specific presentation code by design — colour,
+   motion and texture still come from tokens.css.
+   =========================================================================== */
+
+@layer components {
+  .rc-arrival {
+    /* The approved artwork's paper stock reads warmer than the --paper token,
+       so the field the poster sits on is matched to the artwork here rather
+       than the token being changed underneath the rest of the system. */
+    --ground: #f6e7d4;
+
+    /* the poster's own measure — beyond this the artwork would outgrow the
+       composition it was drawn for, so desktop gets a bigger paper field
+       rather than a bigger poster */
+    --rc-poster: 34rem;
+    min-height: 100svh;
+  }
+
+  .rc-arrival-frame {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: var(--rc-poster);
+    margin: 0 auto;
+    min-height: 100svh;
+    overflow: clip;
+  }
+
+  /* ---------------------------------------------------------- artwork layer
+     Approved artwork, never redrawn in CSS. Anchored top at full column width
+     so the mark stays upper-left and the die stays upper-right exactly as
+     drawn; the paper colour underneath carries any surplus height. */
+
+  .rc-arrival-art {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-repeat: no-repeat;
+    background-position: top center;
+    background-size: 100% auto;
+    transition: opacity 420ms var(--ease-settle);
+  }
+
+  .rc-arrival-art--landing {
+    background-image: url("/brand/landing-background.webp");
+  }
+
+  .rc-arrival-art--entrance {
+    background-image: url("/brand/arrival-background.webp");
+    opacity: 0;
+  }
+
+  /* ------------------------------------------------------------------ stage */
+
+  .rc-arrival-stage {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100svh;
+    padding: 1.625rem 1.5rem 0.875rem;
+    text-align: center;
+  }
+
+  /* --------------------------------------------------------------- top line */
+
+  .rc-arrival-next {
+    align-self: flex-end;
+    font-size: var(--text-rc-base);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-decoration: none;
+    /* --accent-text rather than --accent: 16px is not large text, so the
+       reference's brighter pink would sit at 3.6:1 */
+    color: var(--accent-text);
+  }
+
+  .rc-arrival-next:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+  }
+
+  /* ---------------------------------------------------------------- masthead
+     Eyebrow, wordmark and gesture move as one object between the two states. */
+
+  .rc-arrival-mast {
+    width: 100%;
+    margin-top: 2.3125rem;
+    transform-origin: 50% 50%;
+    transition: transform 620ms var(--ease-settle);
+    will-change: transform;
+  }
+
+  .rc-arrival-eyebrow {
+    font-size: var(--text-rc-base);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.05em;
+  }
+
+  .rc-arrival-eyebrow em {
+    font-style: normal;
+    color: var(--accent-text);
+  }
+
+  .rc-arrival-wordmark {
+    display: block;
+    width: 98.5%;
+    height: auto;
+    margin: 0.125rem auto 0;
+    overflow: visible;
+    color: var(--fg);
+  }
+
+  .rc-arrival-gesture {
+    display: block;
+    width: 66.5%;
+    height: auto;
+    margin: -0.6875rem auto 0;
+    overflow: visible;
+  }
+
+  /* -------------------------------------------------------------------- hero */
+
+  .rc-arrival-body {
+    width: 100%;
+    margin-top: auto;
+  }
+
+  .rc-arrival-lede {
+    max-width: 15rem;
+    margin: 1.0625rem auto 0;
+    font-size: var(--text-rc-base);
+    line-height: 1.7;
+    font-weight: 500;
+  }
+
+  .rc-arrival-lede em {
+    font-style: normal;
+    color: var(--accent-text);
+  }
+
+  .rc-arrival-meta {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.625rem;
+  }
+
+  .rc-arrival-meta-col {
+    text-align: left;
+  }
+
+  .rc-arrival-meta-col:first-child {
+    padding-right: 3.5rem;
+    border-right: var(--hairline) solid var(--fg-line);
+  }
+
+  .rc-arrival-meta-col:last-child {
+    padding-left: 3.625rem;
+  }
+
+  .rc-arrival-label {
+    display: block;
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: 0.04em;
+  }
+
+  .rc-arrival-label--accent {
+    color: var(--accent-text);
+  }
+
+  .rc-arrival-figure {
+    display: block;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .rc-arrival-figure--day {
+    margin: 0.125rem 0 0.1875rem;
+    font-size: 3rem;
+  }
+
+  .rc-arrival-figure--time {
+    font-size: 2.125rem;
+  }
+
+  .rc-arrival-figure--meridiem {
+    margin-bottom: 0.1875rem;
+    font-size: 2.125rem;
+  }
+
+  /* --------------------------------------------------------------------- CTA
+     The reference control is a full-width centred plate, so it does not use
+     the Button primitive, which spreads its label and arrow apart. It keeps
+     the system's fill, radius, focus and press behaviour. */
+
+  .rc-arrival-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 3.9375rem;
+    margin-top: 1.75rem;
+    padding: 0 1.5rem;
+    border-radius: var(--r-control);
+    background: var(--accent);
+    color: var(--paper);
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-md);
+    letter-spacing: 0.045em;
+    text-decoration: none;
+    transition:
+      transform var(--t-press) var(--ease-press),
+      background-color var(--t-state) var(--ease-press);
+  }
+
+  .rc-arrival-cta:hover { background: var(--pink-deep); }
+  .rc-arrival-cta:active { transform: translateY(3px); }
+
+  .rc-arrival-note {
+    margin-top: 1rem;
+    font-size: var(--text-rc-sm);
+  }
+
+  .rc-arrival-hint {
+    margin-top: 1.125rem;
+    padding-bottom: 0.125rem;
+    color: var(--fg-line);
+  }
+
+  .rc-arrival-hint svg {
+    display: block;
+    width: 1rem;
+    height: auto;
+  }
+
+  /* ================================================================== SPLASH
+     Active only on a session's first arrival, and never under
+     prefers-reduced-motion — see the guard script in src/app/page.tsx. */
+
+  html[data-arrival="fresh"] [data-phase="splash"] .rc-arrival-art--entrance {
+    opacity: 1;
+  }
+
+  html[data-arrival="fresh"] [data-phase="splash"] .rc-arrival-art--landing {
+    opacity: 0;
+  }
+
+  html[data-arrival="fresh"] [data-phase="splash"] .rc-arrival-mast {
+    transform: translateY(3.5rem) scale(1.04);
+  }
+
+  html[data-arrival="fresh"] [data-phase="splash"] .rc-arrival-reveal {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+
+  .rc-arrival-reveal {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 420ms var(--ease-settle) 180ms,
+      transform 520ms var(--ease-settle) 180ms;
+  }
+
+  /* ============================================================ ENTRANCE
+     One orchestrated moment, spent on the type: the line wipes on, the
+     letters set, the gesture draws underneath. Animations sit on the inner
+     spans so they never fight the phase transform on the masthead. */
+
+  html[data-arrival="fresh"] .rc-arrival-eyebrow-in {
+    display: inline-block;
+    animation: rc-arrival-wipe 380ms var(--ease-settle) 60ms both;
+  }
+
+  html[data-arrival="fresh"] .rc-arrival-wordmark-in {
+    display: block;
+    animation: rc-arrival-set 400ms var(--ease-settle) 170ms both;
+  }
+
+  html[data-arrival="fresh"] .rc-arrival-gesture-in {
+    display: block;
+    animation: rc-arrival-draw 420ms var(--ease-settle) 340ms both;
+  }
+
+  @keyframes rc-arrival-wipe {
+    from { opacity: 0; clip-path: inset(0 100% 0 0); }
+    to   { opacity: 1; clip-path: inset(0 -2% 0 0); }
+  }
+
+  @keyframes rc-arrival-set {
+    from { opacity: 0; transform: scale(1.06); filter: blur(3px); }
+    to   { opacity: 1; transform: scale(1); filter: blur(0); }
+  }
+
+  @keyframes rc-arrival-draw {
+    from { clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 -12% 0 0); }
+  }
+
+  /* ================================================================= DESKTOP
+     Same poster, more paper. The composition is capped at its own measure and
+     centred on the paper field rather than stretched across the viewport. */
+
+  @media (min-width: 52rem) {
+    .rc-arrival { --rc-poster: 34rem; }
+
+    .rc-arrival-stage { padding: 2.25rem 1.75rem 1.25rem; }
+
+    .rc-arrival-next { font-size: var(--text-rc-md); }
+    .rc-arrival-eyebrow { font-size: var(--text-rc-md); }
+    .rc-arrival-lede {
+      max-width: 18rem;
+      font-size: var(--text-rc-md);
+      line-height: 1.5;
+    }
+    .rc-arrival-figure--day { font-size: 3.25rem; }
+    .rc-arrival-figure--time,
+    .rc-arrival-figure--meridiem { font-size: 2.25rem; }
+    .rc-arrival-meta-col:first-child { padding-right: 4.25rem; }
+    .rc-arrival-meta-col:last-child { padding-left: 4.375rem; }
+    .rc-arrival-cta { min-height: 4.25rem; font-size: var(--text-rc-lg); }
+    .rc-arrival-note { font-size: var(--text-rc-base); }
+  }
+}
