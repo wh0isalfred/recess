@@ -24,7 +24,7 @@ requested. Nothing moves past `REVIEW` without approval.
 |---|---|---|---|---|
 | 01 | Arrival | Reference supplied | N/A | REVIEW |
 | 02 | Landing | Reference supplied | Event | REVIEW |
-| 03 | Registration — Name | Reference required | Registration | REFERENCE |
+| 03 | Registration — Name | Reference supplied | Registration | REVIEW |
 | 04 | Registration — Alias | Reference required | Registration | REFERENCE |
 | 05 | Registration — WhatsApp | Reference required | Registration | REFERENCE |
 | 06 | You're In | Reference required | Registration | REFERENCE |
@@ -65,6 +65,7 @@ Run once every player screen is `VERIFIED`.
 |---|---|---|
 | Landing background artwork | `public/brand/landing-background.webp` | 02 |
 | Arrival background artwork | `public/brand/arrival-background.webp` | 01 |
+| Pink pawn | `public/brand/pawn-pink.webp` | 03 |
 
 Awaiting supply: `recess-wordmark.svg` and `brush-pink.svg`. Both are
 approximated in `src/components/brand/RecessWordmark.tsx` until then — see

@@ -1,0 +1,196 @@
+/* ===========================================================================
+   Screen 03 — Registration / Name.
+
+   Measured off the supplied reference, which describes a 390 x 660 viewport.
+   Screen-specific presentation code; colour, motion and texture still come
+   from tokens.css.
+   =========================================================================== */
+
+@layer components {
+  .rc-reg {
+    /* Matches the approved artwork's paper stock, so moving from the landing
+       poster into registration does not shift the paper tone. This override
+       and the one in arrival.css should collapse into a --paper token change
+       once that is agreed. */
+    --ground: #f6e7d4;
+    min-height: 100svh;
+  }
+
+  .rc-reg-stage {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    max-width: 34rem;
+    min-height: 100svh;
+    margin: 0 auto;
+    padding: 1.5rem 1.625rem 3.4rem;
+  }
+
+  /* ------------------------------------------------------------------ chrome
+     "1 / 3" sits above its dots rather than beside them, so this does not use
+     ProgressIndicator's steps variant, which sets them on one line. */
+
+  .rc-reg-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .rc-reg-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--rc-tap-sm);
+    height: var(--rc-tap-sm);
+    margin: -0.75rem 0 0 -0.75rem;
+    color: var(--fg);
+  }
+
+  .rc-reg-close svg {
+    display: block;
+    width: 1rem;
+    height: auto;
+  }
+
+  .rc-reg-steps {
+    text-align: right;
+  }
+
+  .rc-reg-count {
+    display: block;
+    font-size: var(--text-rc-sm);
+    line-height: 1.2;
+    color: var(--fg-soft);
+  }
+
+  .rc-reg-dots {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 0.875rem;
+  }
+
+  .rc-reg-dot {
+    display: block;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: var(--r-pill);
+    background: var(--fg-muted);
+  }
+
+  .rc-reg-dot--on {
+    background: var(--accent);
+  }
+
+  /* ------------------------------------------------------------------- mark */
+
+  .rc-reg-mark {
+    width: 5rem;
+    margin-top: 0.8125rem;
+  }
+
+  .rc-reg-mark svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    color: var(--fg);
+  }
+
+  .rc-reg-mark .rc-reg-gesture {
+    width: 92%;
+    margin: -0.1875rem 0 0 7%;
+  }
+
+  /* ------------------------------------------------------------------ prompt */
+
+  .rc-reg-heading {
+    /* Width is the reference's measured line length; PosterLine turns that
+       into the right cap height. */
+    width: 67.75%;
+    margin-top: 2.1875rem;
+    color: var(--fg);
+  }
+
+  .rc-reg-heading svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* The Field primitive carries the label, the message and the a11y wiring;
+     only its metrics are nudged to the reference's taller control. */
+  .rc-reg-field {
+    margin-top: 2.375rem;
+  }
+
+  .rc-reg-field label {
+    margin-bottom: 1.5rem;
+    font-weight: 400;
+  }
+
+  .rc-reg-field input {
+    min-height: 4.25rem;
+    padding-left: 1.3125rem;
+    padding-right: 1.3125rem;
+  }
+
+  /* --------------------------------------------------------------- foot line */
+
+  .rc-reg-foot {
+    position: relative;
+    display: flex;
+    justify-content: flex-end;
+    margin-top: auto;
+  }
+
+  /* Offsets place the pawn's solid body where the reference puts it — 179px
+     tall, its left edge cropped by the screen edge — rather than aligning the
+     file's bounding box, most of which is spatter. */
+  .rc-reg-pawn {
+    position: absolute;
+    z-index: 0;
+    left: -2.89rem;
+    bottom: -3.08rem;
+    width: 12.4375rem;
+    height: auto;
+    pointer-events: none;
+  }
+
+  .rc-reg-next {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    min-width: 8.1875rem;
+    min-height: 4.375rem;
+    padding: 0 1.5rem;
+    border: 0;
+    border-radius: var(--r-control);
+    background: var(--accent);
+    color: var(--paper);
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-md);
+    letter-spacing: 0.045em;
+    cursor: pointer;
+    transition:
+      transform var(--t-press) var(--ease-press),
+      background-color var(--t-state) var(--ease-press);
+  }
+
+  .rc-reg-next:hover:not(:disabled) { background: var(--pink-deep); }
+  .rc-reg-next:active:not(:disabled) { transform: translateY(3px); }
+  .rc-reg-next:disabled { background: var(--fg-muted); color: var(--fg-soft); cursor: not-allowed; }
+
+  /* ================================================================= DESKTOP */
+
+  @media (min-width: 52rem) {
+    .rc-reg-stage { padding: 2.25rem 2rem 4rem; }
+    .rc-reg-mark { width: 6.5rem; }
+    .rc-reg-heading { width: 62%; }
+    .rc-reg-pawn { width: 14rem; left: -3.25rem; bottom: -3.5rem; }
+  }
+}

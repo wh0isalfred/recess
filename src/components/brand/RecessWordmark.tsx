@@ -170,3 +170,42 @@ export function BrushGesture({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/**
+ * A poster heading — LET'S GET YOU IN., YOU'RE IN., CHECK IN.
+ *
+ * The references set display lines noticeably narrower than Archivo Black
+ * runs, so this forces the line to exactly 1000 viewBox units and lets
+ * `ratio` (line width divided by cap height, measured off the reference)
+ * decide how much the face is squeezed. Rendered at any width, the cap height
+ * lands where the reference puts it.
+ */
+export function PosterLine({
+  text,
+  ratio = 10.4,
+  className,
+}: {
+  text: string;
+  ratio?: number;
+  className?: string;
+}) {
+  const cap = 1000 / ratio;
+  const size = cap / 0.73;
+  const baseline = cap + 22;
+
+  return (
+    <svg viewBox={`0 0 1000 ${baseline + 18}`} className={className} aria-hidden="true">
+      <text
+        x="0"
+        y={baseline}
+        fontSize={size}
+        textLength="1000"
+        lengthAdjust="spacingAndGlyphs"
+        fill="currentColor"
+        style={{ fontFamily: "var(--font-display-family), system-ui, sans-serif" }}
+      >
+        {text}
+      </text>
+    </svg>
+  );
+}
