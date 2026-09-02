@@ -25,9 +25,9 @@ requested. Nothing moves past `REVIEW` without approval.
 | 01 | Arrival | Reference supplied | N/A | REVIEW |
 | 02 | Landing | Reference supplied | Event | REVIEW |
 | 03 | Registration — Name | Reference supplied | Registration | APPROVED |
-| 04 | Registration — Alias | Reference supplied | Registration | REVIEW |
-| 05 | Registration — WhatsApp | Reference required | Registration | REFERENCE |
-| 06 | You're In | Reference required | Registration | REFERENCE |
+| 04 | Registration — Alias | Reference supplied | Registration | APPROVED |
+| 05 | Registration — WhatsApp | Reference supplied | Registration | REVIEW |
+| 06 | You're In | Reference supplied | Registration | REVIEW |
 | 07 | Event Pass | Reference required | Player/Event | REFERENCE |
 | 08 | Check-in | Reference required | Check-in | REFERENCE |
 | 09 | Room | Reference required | Room | REFERENCE |
@@ -66,6 +66,8 @@ Run once every player screen is `VERIFIED`.
 | Landing background artwork | `public/brand/landing-background.webp` | 02 |
 | Arrival background artwork | `public/brand/arrival-background.webp` | 01 |
 | Pink pawn | `public/brand/pawn-pink.webp` | 03 |
+| Orange knight | `public/brand/knight-orange.webp` | 04 |
+| Pink rook | `public/brand/rook-pink.webp` | 05 |
 | Orange knight | `public/brand/knight-orange.webp` | 04 |
 
 Awaiting supply: `recess-wordmark.svg` and `brush-pink.svg`. Both are

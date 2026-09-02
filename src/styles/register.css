@@ -296,6 +296,115 @@
 
   .rc-reg-back:hover { color: var(--accent-text); }
 
+  /* ============================================================= SCREEN 05
+     WhatsApp. Reuses the shell (top chrome, lockup, heading, --reg-next,
+     --reg-back, --reg-foot--split) exactly as Screens 03-04 do; only the
+     phone control, consent row and rook artwork are new. */
+
+  .rc-reg-rook {
+    position: absolute;
+    z-index: 0;
+    top: 15.5rem;
+    right: -1.25rem;
+    width: clamp(12rem, 34cqw, 16.5rem);
+    height: auto;
+    pointer-events: none;
+  }
+
+  /* CLAIM MY SPOT stays clickable once the phone field is non-empty and
+     consent is checked; validate.ts's shape check runs again on the tap
+     itself (claim(), in WhatsAppStep) rather than gating the button, so an
+     incomplete number never leaves the button dead with no way to discover
+     why — the click itself surfaces the error. The on-blur error below is
+     immediate helpful feedback for the common case, not the only path to it. */
+  .rc-reg-field--phone { margin-top: 2rem; }
+
+  /* The two-part control: a native <select> standing in for the dial code,
+     laid over Field's existing `prefix` slot so the bordered box, the
+     focus ring and the error state all come from Field for free. */
+  .rc-reg-country {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rc-reg-country select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .rc-reg-country-chevron {
+    width: 0.625rem;
+    height: auto;
+    color: var(--fg-soft);
+  }
+
+  .rc-reg-copy--tight { margin-top: 1.125rem; }
+
+  .rc-reg-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+    font-size: var(--text-rc-sm);
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .rc-reg-consent input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+  }
+
+  .rc-reg-consent-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 1.375rem;
+    height: 1.375rem;
+    margin-top: 0.0625rem;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: 0.3125rem;
+    color: var(--paper);
+    transition: background-color var(--t-state) var(--ease-press), border-color var(--t-state) var(--ease-press);
+  }
+
+  .rc-reg-consent-box svg {
+    width: 0.6875rem;
+    height: auto;
+    opacity: 0;
+    transition: opacity var(--t-state) var(--ease-press);
+  }
+
+  .rc-reg-consent input:checked + .rc-reg-consent-box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .rc-reg-consent input:checked + .rc-reg-consent-box svg { opacity: 1; }
+
+  .rc-reg-consent input:focus-visible + .rc-reg-consent-box {
+    outline: 3px solid var(--amber);
+    outline-offset: 2px;
+  }
+
+  .rc-reg-form-error {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-size: var(--text-rc-sm);
+    color: var(--alert);
+  }
+
   /* ================================================================= DESKTOP */
 
   @media (min-width: 52rem) {
@@ -305,5 +414,7 @@
     .rc-reg-pawn { width: 14rem; left: -3.25rem; bottom: -3.5rem; }
     .rc-reg-copy { font-size: var(--text-rc-base); }
     .rc-reg-preview-alias { font-size: var(--text-rc-xl); }
+    .rc-reg-rook { width: 15rem; right: -1rem; }
+    .rc-reg-consent { font-size: var(--text-rc-base); }
   }
 }

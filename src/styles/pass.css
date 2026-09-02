@@ -1,0 +1,161 @@
+/* ===========================================================================
+   Screen 06 — /pass, the confirmed-attendance state.
+
+   Dark aubergine ground (Surface handles the colour swap; nothing here sets
+   a colour directly except the confetti shards and the WhatsApp CTA, which
+   intentionally stay pink regardless of ground). Centred single column,
+   same page width as the registration shell for continuity between the two.
+   =========================================================================== */
+
+@layer components {
+  .rc-pass {
+    min-height: 100svh;
+    overflow: clip;
+  }
+
+  .rc-pass-stage {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 26rem;
+    margin: 0 auto;
+    min-height: 100svh;
+    padding: 3rem 1.75rem 2.5rem;
+    text-align: center;
+  }
+
+  .rc-pass-mark {
+    width: 2.375rem;
+    height: auto;
+    color: var(--fg);
+  }
+
+  .rc-pass-heading {
+    width: 78%;
+    margin-top: 1.25rem;
+    color: var(--fg);
+  }
+
+  .rc-pass-heading svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .rc-pass-alias {
+    margin-top: 0.5rem;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-lg);
+    letter-spacing: 0.01em;
+    color: var(--accent-text);
+  }
+
+  .rc-pass-ticket {
+    margin-top: 1.75rem;
+  }
+
+  .rc-pass-schedule {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    margin-top: 1.75rem;
+    font-size: var(--text-rc-base);
+    color: var(--fg);
+  }
+
+  .rc-pass-schedule p {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .rc-pass-schedule svg {
+    flex: none;
+    width: 1rem;
+    height: auto;
+    color: var(--fg-soft);
+  }
+
+  .rc-pass-whatsapp {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 3.75rem;
+    margin-top: 1.75rem;
+    padding: 0 1.5rem;
+    border-radius: var(--r-control);
+    background: var(--pink-lift);
+    color: var(--aubergine);
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-base);
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    transition: transform var(--t-press) var(--ease-press), opacity var(--t-state) var(--ease-press);
+  }
+
+  .rc-pass-whatsapp:active { transform: translateY(2px); }
+
+  .rc-pass-whatsapp--pending {
+    background: transparent;
+    border: var(--hairline) solid var(--fg-line);
+    color: var(--fg-soft);
+    font-family: inherit;
+    letter-spacing: normal;
+    font-size: var(--text-rc-sm);
+  }
+
+  .rc-pass-calendar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.125rem;
+    padding: 0.5rem;
+    background: none;
+    border: 0;
+    color: var(--fg-soft);
+    font-size: var(--text-rc-sm);
+    letter-spacing: 0.05em;
+    cursor: pointer;
+  }
+
+  .rc-pass-calendar:hover { color: var(--fg); }
+  .rc-pass-calendar svg { width: 0.9375rem; height: auto; }
+
+  .rc-pass-waitlist-copy {
+    max-width: 22rem;
+    margin-top: 1.5rem;
+    font-size: var(--text-rc-base);
+    line-height: 1.6;
+    color: var(--fg);
+  }
+
+  /* --------------------------------------------------------------- confetti
+     A fixed, small scatter — restrained per the brief, not a particle
+     system. Purely decorative shards; never the sole carrier of meaning. */
+  .rc-pass-confetti {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .rc-pass-confetti span {
+    position: absolute;
+    width: 0.5rem;
+    height: 0.875rem;
+    border-radius: 0.125rem;
+    opacity: 0.8;
+  }
+
+  @media (min-width: 52rem) {
+    .rc-pass-stage { padding-top: 4rem; }
+    .rc-pass-mark { width: 2.75rem; }
+    .rc-pass-alias { font-size: var(--text-rc-xl); }
+  }
+}

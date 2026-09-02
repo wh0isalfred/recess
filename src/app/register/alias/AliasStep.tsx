@@ -29,6 +29,11 @@ export function AliasStep() {
     router.push("/register");
   };
 
+  const next = () => {
+    saveDraft({ alias });
+    router.push("/register/whatsapp");
+  };
+
   return (
     <RegistrationShell step={2}>
       <Image
@@ -79,7 +84,7 @@ export function AliasStep() {
         <button type="button" className="rc-reg-back" onClick={back}>
           <span aria-hidden="true">←</span> BACK
         </button>
-        <button type="button" className="rc-reg-next" disabled={trimmed.length === 0}>
+        <button type="button" className="rc-reg-next" disabled={trimmed.length === 0} onClick={next}>
           THAT&rsquo;S ME <span aria-hidden="true">→</span>
         </button>
       </div>
