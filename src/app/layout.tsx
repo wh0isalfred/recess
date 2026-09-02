@@ -51,12 +51,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
       className={`${display.variable} ${ui.variable}`}
     >
-      <body>{children}</body>
-      <Script
-        id="recess-arrival-guard"
-        strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{ __html: ARRIVAL_GUARD }}
-      />
+      <body>
+        <Script
+          id="recess-arrival-guard"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: ARRIVAL_GUARD }}
+        />
+        {children}
+      </body>
     </html>
   );
 }
