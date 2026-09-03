@@ -1,0 +1,213 @@
+/* ===========================================================================
+   Screen 07 — Event Pass. Calm, cream, anticipation — the opposite register
+   from the check-in screen it leads into. Same page width and paper as the
+   registration shell for continuity, new composition below the fold.
+   =========================================================================== */
+
+@layer components {
+  .rc-evp {
+    --ground: #f6e7d4;
+    min-height: 100svh;
+  }
+
+  .rc-evp-stage {
+    max-width: 34rem;
+    min-height: 100svh;
+    margin: 0 auto;
+    padding: 1.5rem 1.625rem 2.5rem;
+  }
+
+  .rc-evp-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .rc-evp-mark {
+    display: block;
+    width: 5.5rem;
+  }
+  .rc-evp-mark svg:first-child { display: block; width: 100%; height: auto; color: var(--fg); }
+  .rc-evp-gesture { display: block; width: 92%; margin: -0.1875rem 0 0 7%; }
+
+  .rc-evp-overflow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--rc-tap-sm);
+    height: var(--rc-tap-sm);
+    margin: -0.5rem -0.5rem 0 0;
+    color: var(--fg);
+  }
+  .rc-evp-overflow svg { width: 1.25rem; height: auto; }
+
+  .rc-evp-greeting {
+    margin-top: 1.75rem;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-lg);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+  .rc-evp-alias { color: var(--accent-text); }
+
+  /* --------------------------------------------------------------- next card */
+
+  .rc-evp-card {
+    display: flex;
+    margin-top: 1.75rem;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: var(--r-control);
+    overflow: hidden;
+  }
+
+  .rc-evp-card-main {
+    flex: 1 1 auto;
+    padding: 1.125rem 1.25rem;
+  }
+
+  .rc-evp-card-label {
+    display: block;
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--fg-soft);
+  }
+
+  .rc-evp-card-date {
+    margin: 0.5rem 0 0;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-base);
+    line-height: 1.2;
+  }
+
+  .rc-evp-card-time {
+    margin: 0.125rem 0 0.875rem;
+    font-size: var(--text-rc-sm);
+    color: var(--fg-soft);
+  }
+
+  .rc-evp-status-badge {
+    display: inline-block;
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--r-pill);
+    background: var(--ink);
+    color: var(--paper);
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  .rc-evp-countdown {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 6.25rem;
+    background: var(--accent);
+    color: var(--paper);
+    text-align: center;
+  }
+
+  .rc-evp-countdown-num {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: 2.5rem;
+    line-height: 0.95;
+  }
+
+  .rc-evp-countdown-label {
+    margin-top: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.3;
+  }
+
+  .rc-evp-countdown-today {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-md);
+  }
+
+  /* ------------------------------------------------------------- get ready */
+
+  .rc-evp-ready { margin-top: 2rem; }
+
+  .rc-evp-ready-title {
+    margin: 0 0 0.75rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--fg-soft);
+  }
+
+  .rc-evp-game-list {
+    display: flex;
+    flex-direction: column;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: var(--r-control);
+    overflow: hidden;
+  }
+
+  .rc-evp-game-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+  }
+  .rc-evp-game-row + .rc-evp-game-row { border-top: var(--hairline) solid var(--fg-line); }
+
+  .rc-evp-game-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    background: var(--accent);
+    color: var(--paper);
+  }
+  .rc-evp-game-icon { width: 1.125rem; height: auto; }
+
+  .rc-evp-game-name { flex: 1 1 auto; font-size: var(--text-rc-base); font-weight: 500; }
+
+  .rc-evp-game-platform {
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent-text);
+  }
+
+  /* ------------------------------------------------------------------- cta */
+
+  .rc-evp-whatsapp {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 3.5rem;
+    margin-top: 1.75rem;
+    border-radius: var(--r-control);
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-base);
+    letter-spacing: 0.04em;
+    text-decoration: none;
+  }
+
+  .rc-evp-whatsapp--pending {
+    background: transparent;
+    border: var(--hairline) solid var(--fg-line);
+    color: var(--fg-soft);
+    font-family: inherit;
+    letter-spacing: normal;
+    font-size: var(--text-rc-sm);
+  }
+
+  @media (min-width: 52rem) {
+    .rc-evp-stage { padding: 2.25rem 2rem 3rem; }
+    .rc-evp-mark { width: 7rem; }
+    .rc-evp-greeting { font-size: var(--text-rc-xl); }
+  }
+}

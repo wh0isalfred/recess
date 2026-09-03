@@ -7,6 +7,7 @@ import { Field } from "@/components/ui/Field";
 import { PosterLine } from "@/components/brand/RecessWordmark";
 import { RegistrationShell } from "@/features/registration/RegistrationShell";
 import { clearDraft, readDraft, saveDraft, useDraftField } from "@/features/registration/draft";
+import { markPassFresh } from "@/features/pass/fresh";
 import { COUNTRIES, findCountry } from "@/features/registration/countries";
 import { validatePhone } from "@/features/registration/validation";
 import { submitRegistration } from "@/features/registration/actions";
@@ -61,22 +62,31 @@ export function WhatsAppStep() {
     setFormError(null);
 
     const draft = readDraft();
-    const result = await submitRegistration({
-      name: draft.name,
-      alias: draft.alias,
-      phone,
-      countryIso2: country,
-      consent,
-    });
+    try {
+      const result = await submitRegistration({
+        name: draft.name,
+        alias: draft.alias,
+        phone,
+        countryIso2: country,
+        consent,
+      });
 
-    if (!result.ok) {
+      if (!result.ok) {
+        setSubmitting(false);
+        setFormError(result.message);
+        return;
+      }
+
+      clearDraft();
+      markPassFresh();
+      router.push("/pass");
+    } catch {
+      // The server action itself threw rather than returning {ok:false} —
+      // without this, a thrown promise leaves CLAIM MY SPOT stuck disabled
+      // forever with no error shown and no way to retry.
       setSubmitting(false);
-      setFormError(result.message);
-      return;
+      setFormError("Something went wrong. Please try again.");
     }
-
-    clearDraft();
-    router.push("/pass");
   };
 
   return (

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useSyncExternalStore } from "react";
 import { Surface } from "@/components/ui/Surface";
 import { Ticket } from "@/components/ui/Ticket";
 import { PlayMark } from "@/components/brand/PlayMark";
@@ -12,16 +13,17 @@ import {
   formatPlayerNumber,
   isValidWhatsAppGroupUrl,
 } from "@/features/registration/calendar";
+import type { PlayerState } from "@/features/pass/types";
+import { clearPassFreshFlag, hasPassFreshFlag } from "@/features/pass/fresh";
+import { EventPassScreen } from "./EventPassScreen";
+import { CheckInScreen } from "./CheckInScreen";
 
 /**
- * The confirmed-attendance version of Screen 06. Reference 3 is authoritative
- * for this state only — see PassScreen below for the WAITLISTED branch,
- * which has no supplied reference.
+ * The Screen 06 celebration and its waitlisted sibling, unchanged from
+ * before this task — only the props feeding them now come from
+ * get_player_state() instead of get_my_registration(), adapted below.
  */
 function Confetti() {
-  // A handful of fixed shards, not a particle system — "restrained
-  // celebration," matching the reference's static scatter rather than the
-  // one non-user-triggered motion the system already spends on rc-stamp.
   const pieces = [
     { x: "10%", y: "6%", r: -18, c: "var(--pink-lift)" },
     { x: "82%", y: "4%", r: 24, c: "var(--amber)" },
@@ -33,15 +35,7 @@ function Confetti() {
   return (
     <div className="rc-pass-confetti" aria-hidden="true">
       {pieces.map((p, i) => (
-        <span
-          key={i}
-          style={{
-            left: p.x,
-            top: p.y,
-            background: p.c,
-            transform: `rotate(${p.r}deg)`,
-          }}
-        />
+        <span key={i} style={{ left: p.x, top: p.y, background: p.c, transform: `rotate(${p.r}deg)` }} />
       ))}
     </div>
   );
@@ -49,21 +43,16 @@ function Confetti() {
 
 function Confirmed({ registration }: { registration: RegistrationState }) {
   const hasGroup = isValidWhatsAppGroupUrl(registration.whatsappGroupUrl);
-
   return (
     <>
       <PlayMark className="rc-pass-mark" />
-
       <h1 className="rc-pass-heading">
         <PosterLine text="YOU'RE IN." ratio={6.6} />
       </h1>
-
       <p className="rc-pass-alias rc-numeric">{registration.alias}</p>
-
       <div className="rc-pass-ticket rc-stamp">
         <Ticket label="Player number" value={formatPlayerNumber(registration.playerNumber)} />
       </div>
-
       <div className="rc-pass-schedule">
         <p>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
@@ -80,7 +69,6 @@ function Confirmed({ registration }: { registration: RegistrationState }) {
           {formatEventTime(registration.startsAt, registration.timezone)} {registration.timezoneLabel}
         </p>
       </div>
-
       {hasGroup ? (
         <a href={registration.whatsappGroupUrl!} className="rc-pass-whatsapp" target="_blank" rel="noreferrer">
           JOIN WHATSAPP GROUP <span aria-hidden="true">→</span>
@@ -90,7 +78,6 @@ function Confirmed({ registration }: { registration: RegistrationState }) {
           WhatsApp group link coming soon
         </p>
       )}
-
       <button type="button" className="rc-pass-calendar" onClick={() => downloadEventIcs(registration)}>
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
           <rect x="2" y="3" width="12" height="11" rx="1.5" />
@@ -102,14 +89,6 @@ function Confirmed({ registration }: { registration: RegistrationState }) {
   );
 }
 
-/**
- * WAITLISTED has no supplied reference — register_player() can produce it
- * (the event's capacity is a real, enforced number; see the migration), but
- * nobody has designed what it looks like yet. This is a plain, honest
- * fallback in the existing system's own type and colour, not a guess at art
- * direction. Flagged in the delivery report — a real Screen 06b reference
- * would replace this.
- */
 function Waitlisted({ registration }: { registration: RegistrationState }) {
   return (
     <>
@@ -127,14 +106,108 @@ function Waitlisted({ registration }: { registration: RegistrationState }) {
   );
 }
 
-export function PassScreen({ registration }: { registration: RegistrationState }) {
-  const waitlisted = registration.status === "WAITLISTED";
+/**
+ * A checked-in player who refreshes /pass before Screen 09 exists must land
+ * somewhere true, not somewhere blank or somewhere pretending to be a
+ * finished screen. Plain, in the system's own type and colour — the same
+ * treatment WAITLISTED already got on Screen 06 before it had a reference.
+ */
+function MinimalFallback({ state }: { state: PlayerState }) {
+  const copy: Record<string, string> = {
+    CHECKED_IN_WAITING: "You're checked in. We'll place you in a room shortly.",
+    ROOM_ASSIGNED: `You're checked in and in ${state.room?.label ?? "a room"}.`,
+    MISSED_CHECK_IN: "Check-in has moved on without you — find a coordinator at the venue.",
+    EVENT_CANCELLED: "This RECESS has been cancelled.",
+    CANCELLED: "This registration was cancelled.",
+    LATE_ARRIVAL: "You're checked in. Find a coordinator to join a room.",
+    LIVE_ROUND: "RECESS is live right now.",
+    BETWEEN_GAMES: "Between games right now.",
+    PAUSED: "Play is paused right now.",
+    RESULTS: "RECESS has wrapped — results are in.",
+  };
+  return (
+    <>
+      <PlayMark className="rc-pass-mark" />
+      <p className="rc-pass-alias rc-numeric">{state.player.alias}</p>
+      <p className="rc-pass-waitlist-copy">{copy[state.view] ?? "Check back soon."}</p>
+    </>
+  );
+}
+
+function toRegistrationState(state: PlayerState): RegistrationState {
+  return {
+    registrationId: `${state.event.slug}-${state.player.number}`,
+    playerNumber: state.player.number,
+    alias: state.player.alias,
+    status: state.player.registrationStatus,
+    eventId: state.event.slug,
+    eventSlug: state.event.slug,
+    eventName: state.event.name,
+    startsAt: state.event.startsAt,
+    timezone: state.event.timezone,
+    timezoneLabel: state.event.timezoneLabel,
+    whatsappGroupUrl: state.event.whatsappGroupUrl,
+  };
+}
+
+const NO_SUBSCRIPTION = () => () => {};
+
+export function PassScreen({ state }: { state: PlayerState }) {
+  // Hydration-safe read: the server always renders as if the flag is unset
+  // (sessionStorage doesn't exist there), and the client's real value —
+  // possibly different — arrives via useSyncExternalStore's dedicated path
+  // for exactly this without a mismatch warning. The flag is cleared
+  // separately, in a plain effect below, never inside this getSnapshot,
+  // which React may call more than once per render and must stay pure.
+  const fresh = useSyncExternalStore(NO_SUBSCRIPTION, hasPassFreshFlag, () => false);
+
+  useEffect(() => {
+    if (fresh) clearPassFreshFlag();
+  }, [fresh]);
+
+  if (state.view === "WAITLISTED") {
+    return (
+      <Surface as="main" ground="night" grain="low" className="rc-pass">
+        <div className="rc-pass-stage">
+          <Waitlisted registration={toRegistrationState(state)} />
+        </div>
+      </Surface>
+    );
+  }
+
+  if (state.view === "PASS_COUNTDOWN") {
+    // useSyncExternalStore resolves the real client value synchronously
+    // during hydration, before paint — so a genuinely fresh registration
+    // does not flash Screen 07 before settling on the celebration.
+    if (!fresh) {
+      return (
+        <Surface as="main" ground="paper" grain="low" className="rc-evp">
+          <EventPassScreen state={state} />
+        </Surface>
+      );
+    }
+    return (
+      <Surface as="main" ground="night" grain="low" className="rc-pass">
+        <Confetti />
+        <div className="rc-pass-stage">
+          <Confirmed registration={toRegistrationState(state)} />
+        </div>
+      </Surface>
+    );
+  }
+
+  if (state.view === "CHECK_IN_OPEN") {
+    return (
+      <Surface as="main" ground="night" grain="low" className="rc-chk">
+        <CheckInScreen state={state} />
+      </Surface>
+    );
+  }
 
   return (
     <Surface as="main" ground="night" grain="low" className="rc-pass">
-      {waitlisted ? null : <Confetti />}
       <div className="rc-pass-stage">
-        {waitlisted ? <Waitlisted registration={registration} /> : <Confirmed registration={registration} />}
+        <MinimalFallback state={state} />
       </div>
     </Surface>
   );

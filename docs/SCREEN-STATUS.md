@@ -26,10 +26,10 @@ requested. Nothing moves past `REVIEW` without approval.
 | 02 | Landing | Reference supplied | Event | REVIEW |
 | 03 | Registration — Name | Reference supplied | Registration | APPROVED |
 | 04 | Registration — Alias | Reference supplied | Registration | APPROVED |
-| 05 | Registration — WhatsApp | Reference supplied | Registration | REVIEW |
-| 06 | You're In | Reference supplied | Registration | REVIEW |
-| 07 | Event Pass | Reference required | Player/Event | REFERENCE |
-| 08 | Check-in | Reference required | Check-in | REFERENCE |
+| 05 | Registration — WhatsApp | Reference supplied | Registration | REVIEW (local only — hosted registration path not yet exercised; see report) |
+| 06 | You're In | Reference supplied | Registration | REVIEW (local only — hosted registration path not yet exercised; see report) |
+| 07 | Event Pass | Reference supplied | Event | REVIEW |
+| 08 | Check-in | Reference supplied | Check-in | REVIEW |
 | 09 | Room | Reference required | Room | REFERENCE |
 | 10 | Live Game | Reference required | Round | REFERENCE |
 | 11 | Between Games | Reference required | Score | REFERENCE |
@@ -68,7 +68,7 @@ Run once every player screen is `VERIFIED`.
 | Pink pawn | `public/brand/pawn-pink.webp` | 03 |
 | Orange knight | `public/brand/knight-orange.webp` | 04 |
 | Pink rook | `public/brand/rook-pink.webp` | 05 |
-| Orange knight | `public/brand/knight-orange.webp` | 04 |
+| Pink exploding die | `public/brand/die-pink.webp` | 08 |
 
 Awaiting supply: `recess-wordmark.svg` and `brush-pink.svg`. Both are
 approximated in `src/components/brand/RecessWordmark.tsx` until then — see

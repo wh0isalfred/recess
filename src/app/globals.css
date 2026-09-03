@@ -3,6 +3,8 @@
 @import "../styles/arrival.css";
 @import "../styles/register.css";
 @import "../styles/pass.css";
+@import "../styles/event-pass.css";
+@import "../styles/check-in.css";
 
 /* Scan source only. Tailwind v4 otherwise scans every non-ignored file in the
    repo, and class names quoted in docs/*.md end up compiled into the bundle. */

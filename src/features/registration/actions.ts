@@ -133,24 +133,3 @@ export async function submitRegistration(input: RegisterInput): Promise<Register
 
   return { ok: true, registration: toRegistrationState(data) };
 }
-
-/**
- * Screen 06's data source, both on first arrival straight from a successful
- * submitRegistration() and on every later refresh — see get_my_registration()
- * in the same migration. Reads the session already on the request; never
- * signs anyone in, so a visitor with no registration gets null rather than
- * an anonymous session they didn't ask for.
- */
-export async function getMyRegistration(): Promise<RegistrationState | null> {
-  const supabase = await createClient();
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  const { data, error } = await supabase.rpc("get_my_registration").maybeSingle<RegistrationRow>();
-  if (error || !data) return null;
-
-  return toRegistrationState(data);
-}
