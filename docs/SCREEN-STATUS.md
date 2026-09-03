@@ -30,7 +30,7 @@ requested. Nothing moves past `REVIEW` without approval.
 | 06 | You're In | Reference supplied | Registration | REVIEW (local only — hosted registration path not yet exercised; see report) |
 | 07 | Event Pass | Reference supplied | Event | REVIEW |
 | 08 | Check-in | Reference supplied | Check-in | REVIEW |
-| 09 | Room | Reference required | Room | REFERENCE |
+| 09 | Room | Reference supplied | Room | REVIEW |
 | 10 | Live Game | Reference required | Round | REFERENCE |
 | 11 | Between Games | Reference required | Score | REFERENCE |
 | 12 | Results | Reference required | Leaderboard | REFERENCE |
@@ -45,11 +45,10 @@ Not started. Screens to be listed when references are supplied.
 
 ## Admin
 
-Not started. Screens to be listed when references are supplied.
-
 | # | Screen | Visual | Data | Status |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| A01 | Event Overview | Reference supplied | Live | REVIEW |
+| A02 | Rooms | Reference supplied | Live | REVIEW |
 
 ## Final QA
 
@@ -73,3 +72,15 @@ Run once every player screen is `VERIFIED`.
 Awaiting supply: `recess-wordmark.svg` and `brush-pink.svg`. Both are
 approximated in `src/components/brand/RecessWordmark.tsx` until then — see
 the note in that file.
+
+Also awaiting supply — game artwork. Architecture is built (`games.artwork_url`,
+same-origin-path-constrained, static files, no Storage bucket) and the UI
+degrades gracefully to a branded fallback (`src/components/brand/GameArt.tsx`)
+wherever it's used (Screen 07's GET READY, Screen 09's UP FIRST). The real
+files are not yet supplied:
+
+| Asset | Path | Screens |
+|---|---|---|
+| Among Us artwork | `public/games/among-us.webp` | 07, 09 |
+| Skribbl artwork | `public/games/skribbl.webp` | 07, 09 |
+| Trivia artwork | `public/games/trivia.webp` | 07, 09 |

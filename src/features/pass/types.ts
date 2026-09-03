@@ -35,6 +35,9 @@ export type PlayerStateGame = {
   slug: string;
   name: string;
   platform: GamePlatform;
+  /** Card-sized artwork — null until real per-game art is supplied. */
+  artworkUrl: string | null;
+  iconUrl: string | null;
 };
 
 export type PlayerState = {
@@ -60,8 +63,17 @@ export type PlayerState = {
     closesAt: string | null;
     available: boolean;
   };
-  /** Present only once a real membership exists. */
-  room?: { label: string };
+  /** Present only on the ROOM_ASSIGNED view — see migration 0018. */
+  room?: {
+    label: string;
+    capacity: number | null;
+    occupancy: number;
+    whatsappGroupUrl: string | null;
+    /** The caller's own current room only — never another room's roster. */
+    roster: { alias: string }[];
+  };
+  /** Present only on the ROOM_ASSIGNED view. Null if no game is configured. */
+  upFirstGame?: PlayerStateGame | null;
   /** Present only on the PASS_COUNTDOWN view. */
   games?: PlayerStateGame[];
 };

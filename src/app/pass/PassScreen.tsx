@@ -17,6 +17,8 @@ import type { PlayerState } from "@/features/pass/types";
 import { clearPassFreshFlag, hasPassFreshFlag } from "@/features/pass/fresh";
 import { EventPassScreen } from "./EventPassScreen";
 import { CheckInScreen } from "./CheckInScreen";
+import { RoomAssignedScreen } from "./RoomAssignedScreen";
+import { WaitingForRoomScreen } from "./WaitingForRoomScreen";
 
 /**
  * The Screen 06 celebration and its waitlisted sibling, unchanged from
@@ -107,15 +109,15 @@ function Waitlisted({ registration }: { registration: RegistrationState }) {
 }
 
 /**
- * A checked-in player who refreshes /pass before Screen 09 exists must land
- * somewhere true, not somewhere blank or somewhere pretending to be a
- * finished screen. Plain, in the system's own type and colour — the same
- * treatment WAITLISTED already got on Screen 06 before it had a reference.
+ * A checked-in player in a state Screen 09 doesn't cover (LIVE, results,
+ * event cancelled) must still land somewhere true, not blank or pretending
+ * to be a finished screen. Plain, in the system's own type and colour — the
+ * same treatment WAITLISTED already got before it had a reference.
+ * CHECKED_IN_WAITING and ROOM_ASSIGNED have their own real screens now, so
+ * they no longer route here — see the dispatch below.
  */
 function MinimalFallback({ state }: { state: PlayerState }) {
   const copy: Record<string, string> = {
-    CHECKED_IN_WAITING: "You're checked in. We'll place you in a room shortly.",
-    ROOM_ASSIGNED: `You're checked in and in ${state.room?.label ?? "a room"}.`,
     MISSED_CHECK_IN: "Check-in has moved on without you — find a coordinator at the venue.",
     EVENT_CANCELLED: "This RECESS has been cancelled.",
     CANCELLED: "This registration was cancelled.",
@@ -200,6 +202,22 @@ export function PassScreen({ state }: { state: PlayerState }) {
     return (
       <Surface as="main" ground="night" grain="low" className="rc-chk">
         <CheckInScreen state={state} />
+      </Surface>
+    );
+  }
+
+  if (state.view === "ROOM_ASSIGNED") {
+    return (
+      <Surface as="main" ground="night" grain="low" className="rc-room">
+        <RoomAssignedScreen state={state} />
+      </Surface>
+    );
+  }
+
+  if (state.view === "CHECKED_IN_WAITING") {
+    return (
+      <Surface as="main" ground="night" grain="low" className="rc-room">
+        <WaitingForRoomScreen />
       </Surface>
     );
   }

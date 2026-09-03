@@ -1,0 +1,319 @@
+/* ===========================================================================
+   Screen 09 — Player Room. Same LIVE register as Screen 08 (near-black
+   aubergine, hot pink pushed hard) — the player has moved from "check in"
+   to "you're placed," which is a louder, more settled moment than either.
+   =========================================================================== */
+
+@layer components {
+  .rc-room {
+    --ground: #150a1a;
+    min-height: 100svh;
+    overflow: clip;
+  }
+
+  .rc-room::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+    background-size: 2.25rem 2.25rem;
+    mask-image: radial-gradient(ellipse 75% 65% at 50% 20%, black 40%, transparent 85%);
+  }
+
+  .rc-room-stage {
+    position: relative;
+    z-index: 1;
+    max-width: 26rem;
+    min-height: 100svh;
+    margin: 0 auto;
+    padding: 1.5rem 1.5rem 2.25rem;
+  }
+
+  .rc-room-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .rc-room-mark { display: block; width: 5.25rem; }
+  .rc-room-mark svg:first-child { display: block; width: 100%; height: auto; color: var(--fg); }
+  .rc-room-gesture { display: block; width: 92%; margin: -0.1875rem 0 0 7%; }
+
+  .rc-room-overflow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--rc-tap-sm);
+    height: var(--rc-tap-sm);
+    margin: -0.5rem -0.5rem 0 0;
+    color: var(--fg);
+  }
+  .rc-room-overflow svg { width: 1.25rem; height: auto; }
+
+  .rc-room-eyebrow {
+    margin-top: 1.25rem;
+    font-size: var(--text-rc-base);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--fg-soft);
+  }
+
+  .rc-room-label {
+    position: relative;
+    margin: 0.125rem 0 0;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: 3.25rem;
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+    color: var(--accent-text);
+  }
+  .rc-room-label::after {
+    content: "";
+    display: block;
+    width: 3.5rem;
+    height: 0.25rem;
+    margin-top: 0.5rem;
+    background: var(--accent);
+    border-radius: var(--r-pill);
+  }
+
+  .rc-room-occupancy {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.875rem;
+    font-size: var(--text-rc-base);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--fg-soft);
+  }
+  .rc-room-occupancy svg { flex: none; width: 1rem; height: auto; }
+
+  /* ------------------------------------------------------------------- cta */
+
+  .rc-room-whatsapp {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    width: 100%;
+    min-height: 3.75rem;
+    margin-top: 1.5rem;
+    border-radius: var(--r-control);
+    background: var(--accent);
+    color: var(--paper);
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-base);
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    transition: transform var(--t-press) var(--ease-press), background-color var(--t-state) var(--ease-press);
+  }
+  .rc-room-whatsapp svg { width: 1.125rem; height: auto; }
+  .rc-room-whatsapp:hover { background: var(--pink-deep); }
+  .rc-room-whatsapp:active { transform: translateY(2px); }
+
+  .rc-room-whatsapp--pending {
+    background: transparent;
+    border: var(--hairline) solid var(--fg-line);
+    color: var(--fg-soft);
+    font-family: inherit;
+    letter-spacing: normal;
+    font-size: var(--text-rc-sm);
+  }
+
+  /* -------------------------------------------------------------- up first */
+
+  .rc-room-upfirst {
+    display: block;
+    margin-top: 1.5rem;
+    padding: 1rem;
+    border-radius: var(--r-control);
+    background: var(--ground-lift);
+    text-decoration: none;
+    color: inherit;
+    cursor: default;
+  }
+
+  .rc-room-upfirst-label {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--fg-soft);
+  }
+
+  .rc-room-upfirst-row {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+  }
+
+  .rc-room-upfirst-info {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3125rem;
+    min-width: 0;
+  }
+
+  .rc-room-upfirst-name {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-base);
+  }
+
+  .rc-room-upfirst-status {
+    font-size: var(--text-rc-sm);
+    color: var(--fg-soft);
+  }
+
+  .rc-room-upfirst-chip {
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--paper);
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .rc-room-upfirst-chevron {
+    flex: none;
+    font-size: 1.5rem;
+    color: var(--fg-soft);
+  }
+
+  /* ---------------------------------------------------------------- roster */
+
+  .rc-room-roster { margin-top: 1.75rem; }
+
+  .rc-room-roster-title {
+    margin: 0 0 0.75rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--fg-soft);
+  }
+
+  .rc-room-roster-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .rc-room-roster-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .rc-avatar { flex: none; border-radius: 50%; }
+
+  .rc-room-roster-alias {
+    font-size: var(--text-rc-base);
+    font-weight: 500;
+  }
+
+  .rc-room-you-badge {
+    padding: 0.1875rem 0.5rem;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--paper);
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .rc-room-roster-more {
+    margin: 0.625rem 0 0 2.5rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--fg-soft);
+  }
+
+  /* --------------------------------------------------------------- footer */
+
+  .rc-room-footer {
+    margin-top: 1.75rem;
+    padding: 1.125rem 1.25rem;
+    border-radius: var(--r-control);
+    border: var(--hairline) solid var(--fg-line);
+  }
+
+  .rc-room-footer-label {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-md);
+    color: var(--accent-text);
+  }
+
+  .rc-room-footer-copy {
+    margin-top: 0.375rem;
+    font-size: var(--text-rc-sm);
+    letter-spacing: 0.02em;
+    color: var(--fg-soft);
+  }
+
+  /* ------------------------------------------------------------- game art */
+
+  .rc-game-art {
+    flex: none;
+    border-radius: 0.625rem;
+    object-fit: cover;
+  }
+
+  .rc-game-art--fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--paper);
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: 1.25rem;
+  }
+
+  /* ----------------------------------------------------- CHECKED_IN_WAITING */
+
+  .rc-room-stage--waiting {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .rc-room-waiting-mark { width: 2.375rem; height: auto; color: var(--fg); }
+
+  .rc-room-waiting-heading {
+    margin-top: 1.5rem;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-lg);
+    color: var(--fg);
+  }
+
+  .rc-room-waiting-sub {
+    margin-top: 0.375rem;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-md);
+    color: var(--accent-text);
+  }
+
+  .rc-room-waiting-copy {
+    margin-top: 0.75rem;
+    font-size: var(--text-rc-base);
+    color: var(--fg-soft);
+  }
+
+  @media (min-width: 52rem) {
+    .rc-room-stage { padding-top: 2.25rem; }
+    .rc-room-mark { width: 6.25rem; }
+    .rc-room-label { font-size: 3.75rem; }
+  }
+}
