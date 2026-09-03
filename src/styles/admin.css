@@ -1,0 +1,512 @@
+/* ===========================================================================
+   Admin. Desktop-first, cream/parchment, dark ink type, hot pink reserved
+   for primary actions and live states — the calm operational register the
+   brief asks for, distinctly RECESS rather than generic SaaS chrome.
+   =========================================================================== */
+
+@layer components {
+  .rc-admin-shell,
+  .rc-admin-login {
+    --ground: var(--paper);
+    min-height: 100vh;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-ui-family), system-ui, sans-serif;
+  }
+
+  /* ------------------------------------------------------------------ login */
+
+  .rc-admin-login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+
+  .rc-admin-login-card {
+    width: 100%;
+    max-width: 22rem;
+    padding: 2rem;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: var(--r-control);
+    background: var(--paper-deep);
+  }
+
+  .rc-admin-login-mark {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: 1.5rem;
+    letter-spacing: 0.02em;
+  }
+
+  .rc-admin-login-title {
+    margin: 0.25rem 0 1.5rem;
+    font-size: var(--text-rc-md);
+    color: var(--ink-soft);
+  }
+
+  .rc-admin-login-form { display: flex; flex-direction: column; gap: 1rem; }
+
+  .rc-admin-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 600;
+  }
+  .rc-admin-field input {
+    min-height: 2.75rem;
+    padding: 0 0.875rem;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: 0.5rem;
+    background: var(--paper);
+    font-size: var(--text-rc-base);
+    font-weight: 400;
+    color: var(--ink);
+  }
+  .rc-admin-field input:focus-visible { outline: 3px solid var(--amber); outline-offset: 1px; }
+
+  .rc-admin-login-error { font-size: var(--text-rc-sm); color: var(--alert); }
+
+  .rc-admin-login-submit {
+    min-height: 2.875rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: var(--accent);
+    color: var(--paper);
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+  .rc-admin-login-submit:hover:not(:disabled) { background: var(--pink-deep); }
+  .rc-admin-login-submit:disabled { background: var(--fg-muted); cursor: not-allowed; }
+
+  /* ------------------------------------------------------------------ shell */
+
+  .rc-admin-shell { display: flex; }
+
+  .rc-admin-sidebar {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    width: 14rem;
+    min-height: 100vh;
+    padding: 1.5rem 1rem;
+    border-right: var(--hairline) solid var(--fg-line);
+    background: var(--paper-deep);
+  }
+
+  .rc-admin-sidebar-mark {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: 1.375rem;
+    letter-spacing: 0.02em;
+    margin-bottom: 1.5rem;
+  }
+
+  .rc-admin-nav { display: flex; flex-direction: column; gap: 0.125rem; flex: 1 1 auto; }
+
+  .rc-admin-nav-link {
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 600;
+    color: var(--ink-soft);
+    text-decoration: none;
+  }
+  .rc-admin-nav-link:hover { background: var(--paper); color: var(--ink); }
+  .rc-admin-nav-link--disabled { color: var(--fg-muted); cursor: not-allowed; }
+  .rc-admin-nav-link--disabled:hover { background: none; }
+
+  .rc-admin-sidebar-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 1rem;
+    border-top: var(--hairline) solid var(--fg-line);
+  }
+  .rc-admin-staff-name { font-size: var(--text-rc-sm); font-weight: 600; }
+  .rc-admin-logout {
+    border: 0;
+    background: none;
+    font-size: var(--text-rc-sm);
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .rc-admin-logout:hover { color: var(--accent-text); }
+
+  .rc-admin-content { flex: 1 1 auto; min-width: 0; }
+
+  .rc-admin-page { max-width: 56rem; margin: 0 auto; padding: 2rem 2.5rem 4rem; }
+
+  .rc-admin-error { color: var(--alert); font-weight: 600; }
+  .rc-admin-error--inline { margin-top: 0.5rem; font-size: var(--text-rc-sm); }
+  .rc-admin-empty { color: var(--ink-soft); font-size: var(--text-rc-sm); }
+
+  /* ---------------------------------------------------------------- header */
+
+  .rc-admin-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1.75rem;
+  }
+
+  .rc-admin-title {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: 1.75rem;
+    letter-spacing: -0.005em;
+  }
+  .rc-admin-subtitle { margin-top: 0.25rem; font-size: var(--text-rc-sm); color: var(--ink-soft); }
+
+  .rc-admin-header-actions { display: flex; align-items: center; gap: 0.75rem; }
+
+  .rc-admin-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--r-pill);
+    background: var(--go-wash, #e3f3ea);
+    color: var(--go);
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .rc-admin-status-chip::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .rc-admin-manage-btn,
+  .rc-admin-add-room {
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: var(--accent);
+    color: var(--paper);
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+  .rc-admin-manage-btn:disabled { background: var(--fg-muted); cursor: not-allowed; }
+  .rc-admin-add-room:hover { background: var(--pink-deep); }
+
+  /* --------------------------------------------------------------- metrics */
+
+  .rc-admin-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.875rem;
+    margin-bottom: 1.75rem;
+  }
+  .rc-admin-metrics--compact { grid-template-columns: repeat(3, 1fr); max-width: 28rem; }
+
+  .rc-admin-metric {
+    padding: 1rem 1.125rem;
+    border-radius: var(--r-control);
+    background: var(--paper-deep);
+  }
+  .rc-admin-metric--warn { background: color-mix(in oklab, var(--warn) 14%, var(--paper-deep)); }
+
+  .rc-admin-metric-value {
+    display: block;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: 1.75rem;
+    line-height: 1;
+  }
+  .rc-admin-metric-label {
+    display: block;
+    margin-top: 0.375rem;
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+
+  /* ------------------------------------------------------------------ card */
+
+  .rc-admin-card {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: var(--r-control);
+    background: var(--paper-deep);
+  }
+  .rc-admin-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .rc-admin-card-title {
+    margin: 0 0 1rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+  .rc-admin-card-head .rc-admin-card-title { margin-bottom: 0; }
+  .rc-admin-view-all { font-size: var(--text-rc-sm); font-weight: 700; color: var(--accent-text); text-decoration: none; }
+
+  /* --------------------------------------------------------------- flow */
+
+  .rc-admin-flow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .rc-admin-flow-step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1 1 0;
+    font-size: var(--text-rc-sm);
+    color: var(--fg-muted);
+  }
+  .rc-admin-flow-step::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 2px;
+    background: var(--fg-line);
+  }
+  .rc-admin-flow-step:last-child::after { display: none; }
+  .rc-admin-flow-dot { flex: none; width: 0.625rem; height: 0.625rem; border-radius: 50%; background: var(--fg-muted); }
+  .rc-admin-flow-step--done { color: var(--ink); }
+  .rc-admin-flow-step--done .rc-admin-flow-dot { background: var(--accent); }
+
+  .rc-admin-open-checkin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1.25rem;
+    border: 0;
+    border-radius: var(--r-control);
+    background: var(--accent);
+    color: var(--paper);
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-sm);
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+  .rc-admin-open-checkin-btn svg { width: 0.875rem; height: auto; }
+  .rc-admin-open-checkin-btn:hover:not(:disabled) { background: var(--pink-deep); }
+  .rc-admin-open-checkin-btn:disabled { background: var(--fg-muted); cursor: not-allowed; }
+
+  /* ----------------------------------------------------------- room tiles */
+
+  .rc-admin-room-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+
+  .rc-admin-room-tile {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    border-radius: 0.625rem;
+    background: var(--paper);
+  }
+  .rc-admin-room-tile-label { font-size: var(--text-rc-xs); font-weight: 700; letter-spacing: 0.05em; color: var(--ink-soft); }
+  .rc-admin-room-tile-count {
+    margin-top: 0.375rem;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: 1.375rem;
+    color: var(--accent-text);
+  }
+  .rc-admin-room-tile-status {
+    display: inline-block;
+    align-self: flex-start;
+    margin-top: 0.375rem;
+    padding: 0.1875rem 0.5rem;
+    border-radius: var(--r-pill);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .rc-admin-tone-accent { background: var(--accent-wash); color: var(--accent-text); }
+  .rc-admin-tone-go { background: color-mix(in oklab, var(--go) 16%, transparent); color: var(--go); }
+  .rc-admin-tone-warn { background: color-mix(in oklab, var(--warn) 18%, transparent); color: var(--amber-deep); }
+  .rc-admin-tone-muted { background: var(--fg-line); color: var(--ink-soft); }
+
+  /* Text-only variant — the pill tones above set a background meant for a
+     small badge; a heading needs just the color, or "WAITING FOR ROOM 2"
+     reads as if the whole line were highlighted rather than emphasized. */
+  .rc-admin-tone-warn-text { color: var(--amber-deep); background: none; }
+
+  .rc-admin-room-tile-bar {
+    display: block;
+    margin-top: 0.625rem;
+    height: 0.375rem;
+    border-radius: var(--r-pill);
+    background: var(--fg-line);
+    overflow: hidden;
+  }
+  .rc-admin-room-tile-bar-fill { display: block; height: 100%; background: var(--accent); }
+
+  /* ------------------------------------------------------------------ next */
+
+  .rc-admin-next-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .rc-admin-next-name { font-family: var(--font-display-family), system-ui, sans-serif; font-size: var(--text-rc-base); }
+  .rc-admin-next-status { margin-top: 0.25rem; font-size: var(--text-rc-sm); color: var(--ink-soft); }
+  .rc-admin-live-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1.125rem;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: var(--r-control);
+    background: var(--paper);
+    color: var(--fg-muted);
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    cursor: not-allowed;
+  }
+
+  /* ----------------------------------------------------------- A02 rooms */
+
+  .rc-admin-room-list { display: flex; flex-direction: column; gap: 0.875rem; margin-bottom: 1.75rem; }
+
+  .rc-admin-room-card {
+    padding: 1.125rem 1.25rem;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: var(--r-control);
+    background: var(--paper-deep);
+  }
+
+  .rc-admin-room-card-top { display: flex; align-items: center; gap: 0.625rem; }
+  .rc-admin-room-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--accent); }
+  .rc-admin-room-card-label { font-weight: 700; }
+  .rc-admin-room-card-count {
+    margin-left: auto;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: 1.125rem;
+    color: var(--accent-text);
+  }
+  .rc-admin-status-pill {
+    padding: 0.1875rem 0.5625rem;
+    border-radius: var(--r-pill);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .rc-admin-room-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    font-size: var(--text-rc-sm);
+  }
+  .rc-admin-room-badge { font-weight: 600; }
+  .rc-admin-room-coordinator { color: var(--ink-soft); }
+
+  .rc-admin-room-card-actions { display: flex; align-items: center; gap: 0.625rem; margin-top: 0.875rem; }
+
+  .rc-admin-view-players,
+  .rc-admin-configure,
+  .rc-admin-room-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: 0.5rem;
+    background: var(--paper);
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .rc-admin-view-players svg { width: 0.8125rem; height: auto; }
+  .rc-admin-configure { border-color: var(--amber-deep); color: var(--amber-deep); }
+  .rc-admin-room-more { min-height: 2.25rem; padding: 0 0.625rem; }
+
+  .rc-admin-members {
+    margin-top: 0.875rem;
+    padding: 0.875rem 1rem;
+    border-radius: 0.5rem;
+    background: var(--paper);
+  }
+  .rc-admin-members-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+  }
+  .rc-admin-members-head button { border: 0; background: none; cursor: pointer; color: inherit; }
+  .rc-admin-members-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.625rem; }
+  .rc-admin-members-row { display: flex; align-items: center; gap: 0.625rem; font-size: var(--text-rc-sm); }
+  .rc-admin-members-number { margin-left: auto; color: var(--ink-soft); }
+
+  /* ------------------------------------------------------------- waiting */
+
+  .rc-admin-waiting-list { display: flex; flex-direction: column; gap: 0.75rem; }
+  .rc-admin-waiting-row { display: flex; align-items: center; gap: 0.75rem; }
+  .rc-admin-waiting-info { display: flex; flex-direction: column; gap: 0.125rem; font-size: var(--text-rc-sm); }
+  .rc-admin-waiting-meta { color: var(--ink-soft); font-size: var(--text-rc-xs); }
+
+  .rc-admin-assign-waiting {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    margin-top: 1.125rem;
+    padding: 0 1.25rem;
+    border: 0;
+    border-radius: var(--r-control);
+    background: var(--amber-deep);
+    color: var(--paper);
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+  .rc-admin-assign-waiting svg { width: 1rem; height: auto; }
+  .rc-admin-assign-waiting:disabled { background: var(--fg-muted); cursor: not-allowed; }
+  .rc-admin-assign-message { margin-top: 0.5rem; font-size: var(--text-rc-sm); color: var(--ink-soft); }
+
+  /* ------------------------------------------------------------------ drawer */
+
+  .rc-admin-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    justify-content: flex-end;
+    background: rgba(27, 18, 25, 0.35);
+  }
+  .rc-admin-drawer {
+    width: 24rem;
+    max-width: 100%;
+    height: 100%;
+    padding: 1.5rem;
+    background: var(--paper);
+    box-shadow: -8px 0 24px rgba(27, 18, 25, 0.15);
+    overflow-y: auto;
+  }
+  .rc-admin-drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+  .rc-admin-drawer-head h2 { font-family: var(--font-display-family), system-ui, sans-serif; font-size: 1.125rem; }
+  .rc-admin-drawer-close { border: 0; background: none; font-size: 1rem; cursor: pointer; }
+  .rc-admin-drawer-form { display: flex; flex-direction: column; gap: 1rem; }
+  .rc-admin-drawer-save {
+    min-height: 2.875rem;
+    border: 0;
+    border-radius: var(--r-control);
+    background: var(--accent);
+    color: var(--paper);
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+  .rc-admin-drawer-save:hover:not(:disabled) { background: var(--pink-deep); }
+  .rc-admin-drawer-save:disabled { background: var(--fg-muted); cursor: not-allowed; }
+
+  @media (max-width: 60rem) {
+    .rc-admin-room-grid { grid-template-columns: 1fr; }
+    .rc-admin-metrics { grid-template-columns: repeat(2, 1fr); }
+  }
+}
