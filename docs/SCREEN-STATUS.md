@@ -18,6 +18,31 @@ time. This is a progress tracker, not a spec — what a screen *is* lives in
 One screen at a time. Two directly related states only when explicitly
 requested. Nothing moves past `REVIEW` without approval.
 
+## Identity & Session Continuity
+
+Not a screen — a cross-cutting behavior layered onto the existing Player
+screens (01, 03, 05, 06, 07, 08, 09) without changing any of their visuals.
+Tracked here rather than against one screen row because it touches five
+routes at once: `/register`, `/register/alias`, `/register/whatsapp`,
+`/pass`, and `/`.
+
+**What it does:** one shared resolver (`resolvePlayerIdentity()`) now gates
+all five routes, so a registered player can no longer reach onboarding
+by URL, back button, or reload, and the landing page CTA reflects real
+identity (`I'M IN` vs `OPEN YOUR PASS`) instead of guessing from
+localStorage. A genuine identity-check failure (Supabase unreachable, not
+"no registration") shows an explicit retry state rather than crashing or
+silently guessing either direction — this replaced a real crash (500) that
+existed before this slice, caught while building it.
+
+**Status: `CONNECTED`, not `VERIFIED`.** The code is real, wired to the
+real `get_player_state()`/`register_player()` architecture, and the guard
+logic itself was proven — but proven locally and via a code-level harness,
+not against the hosted product. See the delivery report for exactly what
+was and wasn't exercised. Do not treat this as done until the hosted
+acceptance flow (new visitor → register → returning player recognized →
+refresh → duplicate-prevention) has actually been run.
+
 ## Player
 
 | # | Screen | Visual | Data | Status |

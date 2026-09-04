@@ -34,7 +34,7 @@ export type EventCard = {
   zone: string;
 };
 
-export function ArrivalLanding({ event }: { event: EventCard }) {
+export function ArrivalLanding({ event, registered = false }: { event: EventCard; registered?: boolean }) {
   const [phase, setPhase] = useState<"splash" | "landing">("splash");
 
   useEffect(() => {
@@ -100,9 +100,15 @@ export function ArrivalLanding({ event }: { event: EventCard }) {
               </div>
             </div>
 
-            <Link href="/register" className="rc-arrival-cta">
-              I&rsquo;M IN <span aria-hidden="true">→</span>
-            </Link>
+            {registered ? (
+              <Link href="/pass" className="rc-arrival-cta">
+                OPEN YOUR PASS <span aria-hidden="true">→</span>
+              </Link>
+            ) : (
+              <Link href="/register" className="rc-arrival-cta">
+                I&rsquo;M IN <span aria-hidden="true">→</span>
+              </Link>
+            )}
 
             <p className="rc-arrival-note">Come solo or bring your people.</p>
           </div>

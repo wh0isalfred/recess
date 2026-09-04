@@ -23,6 +23,38 @@ export async function getPlayerState(): Promise<PlayerState | null> {
 }
 
 /**
+ * The one identity check every onboarding guard and the landing page's CTA
+ * share (see register/page.tsx, register/alias/page.tsx,
+ * register/whatsapp/page.tsx, and src/app/page.tsx) — "do not duplicate
+ * this logic independently across every screen."
+ *
+ * getPlayerState() itself only distinguishes "no registration" from "has
+ * one" — it cannot tell that apart from "couldn't check right now" (a
+ * network blip, Supabase briefly unreachable), because both surface as a
+ * thrown exception or an RPC error with nothing else to go on. Collapsing
+ * that into null would satisfy the type system while violating the actual
+ * product invariant this slice exists to guarantee: a genuinely registered
+ * player must never be shown as unregistered, including when the check
+ * itself fails. So this wraps getPlayerState() and keeps "unknown" as its
+ * own outcome, forcing every caller to decide deliberately rather than by
+ * accident — an onboarding guard should render a retry state for "unknown,"
+ * never silently fall through to registration.
+ */
+export type IdentityResolution =
+  | { status: "unregistered" }
+  | { status: "registered"; state: PlayerState }
+  | { status: "unknown" };
+
+export async function resolvePlayerIdentity(): Promise<IdentityResolution> {
+  try {
+    const state = await getPlayerState();
+    return state ? { status: "registered", state } : { status: "unregistered" };
+  } catch {
+    return { status: "unknown" };
+  }
+}
+
+/**
  * Friendly text for every code check_in_player() can raise — see the
  * migration for the authoritative list. Anything else falls through to a
  * generic message; no raw Postgres/Supabase error ever reaches the player.
