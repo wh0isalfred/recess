@@ -2,56 +2,86 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { CheckInResult, PlayerState } from "./types";
+import { classifyIdentity, type IdentityResolution } from "./identity";
 
-/**
- * `/pass`'s single data source. Reads the session already on the request —
- * never signs anyone in — so a visitor with no session or no registration
- * gets null, which the page reads as "not registered" rather than an error.
- */
-export async function getPlayerState(): Promise<PlayerState | null> {
-  const supabase = await createClient();
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  const { data, error } = await supabase.rpc("get_player_state");
-  if (error || !data) return null;
-
-  return data as PlayerState;
-}
+export type { IdentityResolution } from "./identity";
 
 /**
  * The one identity check every onboarding guard and the landing page's CTA
  * share (see register/page.tsx, register/alias/page.tsx,
- * register/whatsapp/page.tsx, and src/app/page.tsx) — "do not duplicate
- * this logic independently across every screen."
+ * register/whatsapp/page.tsx, src/app/pass/page.tsx, and src/app/page.tsx)
+ * — "do not duplicate this logic independently across every screen."
  *
- * getPlayerState() itself only distinguishes "no registration" from "has
- * one" — it cannot tell that apart from "couldn't check right now" (a
- * network blip, Supabase briefly unreachable), because both surface as a
- * thrown exception or an RPC error with nothing else to go on. Collapsing
- * that into null would satisfy the type system while violating the actual
- * product invariant this slice exists to guarantee: a genuinely registered
- * player must never be shown as unregistered, including when the check
- * itself fails. So this wraps getPlayerState() and keeps "unknown" as its
- * own outcome, forcing every caller to decide deliberately rather than by
- * accident — an onboarding guard should render a retry state for "unknown,"
- * never silently fall through to registration.
+ * Three genuinely distinguishable outcomes, checked in this order:
+ *
+ *   1. No authenticated session at all -> "unregistered." Unambiguous: with
+ *      no session there is no identity to look anything up for, so this
+ *      never calls the RPC and never has an error to swallow.
+ *
+ *   2. A session exists and the RPC call itself fails — throws, or returns
+ *      a Postgres/network error — -> "unknown." A real, authenticated
+ *      identity's lookup did not complete. This is never re-interpreted as
+ *      "no registration," which is the specific bug this function exists to
+ *      not have: an earlier version funnelled `error || !data` into one
+ *      `return null`, so an RPC failure for an actually-registered player
+ *      looked identical to a legitimate empty result, and every caller
+ *      downstream treated it as "show them onboarding again."
+ *
+ *   3. A session exists, the RPC call succeeds cleanly, and the data itself
+ *      is null -> "unregistered." get_player_state() (0017/0018) returns
+ *      SQL null only when auth.uid() has no registration — a deliberate,
+ *      error-free null, not a failure. This is the only path that produces
+ *      "unregistered" once a session exists; it never happens by falling
+ *      through an error branch.
+ *
+ * Every failure mode below returns "unknown," not a silent default in
+ * either direction — an onboarding guard renders an explicit retry state
+ * for it, never onboarding and never a redirect. See IdentityCheckFailed.
  */
-export type IdentityResolution =
-  | { status: "unregistered" }
-  | { status: "registered"; state: PlayerState }
-  | { status: "unknown" };
-
 export async function resolvePlayerIdentity(): Promise<IdentityResolution> {
+  let supabase: Awaited<ReturnType<typeof createClient>> | undefined;
   try {
-    const state = await getPlayerState();
-    return state ? { status: "registered", state } : { status: "unregistered" };
+    supabase = await createClient();
   } catch {
-    return { status: "unknown" };
+    return classifyIdentity({
+      clientFailed: true, sessionCheckFailed: false, hasSession: false,
+      rpcThrew: false, rpcError: false, rpcData: undefined,
+    });
   }
+
+  let hasSession = false;
+  try {
+    const result = await supabase.auth.getSession();
+    hasSession = !!result.data.session;
+  } catch {
+    return classifyIdentity({
+      clientFailed: false, sessionCheckFailed: true, hasSession: false,
+      rpcThrew: false, rpcError: false, rpcData: undefined,
+    });
+  }
+
+  if (!hasSession) {
+    return classifyIdentity({
+      clientFailed: false, sessionCheckFailed: false, hasSession: false,
+      rpcThrew: false, rpcError: false, rpcData: undefined,
+    });
+  }
+
+  let rpcThrew = false;
+  let rpcError = false;
+  let rpcData: unknown;
+  try {
+    const result = await supabase.rpc("get_player_state");
+    rpcError = !!result.error;
+    rpcData = result.data;
+  } catch {
+    rpcThrew = true;
+  }
+
+  return classifyIdentity({
+    clientFailed: false, sessionCheckFailed: false, hasSession: true,
+    rpcThrew, rpcError, rpcData,
+  });
 }
 
 /**
