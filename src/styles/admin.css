@@ -509,4 +509,99 @@
     .rc-admin-room-grid { grid-template-columns: 1fr; }
     .rc-admin-metrics { grid-template-columns: repeat(2, 1fr); }
   }
+
+  /* ------------------------------------------------------------- event tabs */
+
+  .rc-admin-event-tabs {
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: 1.5rem 2.5rem 0;
+  }
+  .rc-admin-event-back {
+    display: inline-block;
+    margin-bottom: 0.875rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 600;
+    color: var(--ink-soft);
+    text-decoration: none;
+  }
+  .rc-admin-event-back:hover { color: var(--accent-text); }
+
+  .rc-admin-event-tab-nav { display: flex; gap: 0.25rem; border-bottom: var(--hairline) solid var(--fg-line); }
+  .rc-admin-event-tab {
+    padding: 0.625rem 1rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+  }
+  .rc-admin-event-tab--active { color: var(--accent-text); border-color: var(--accent); }
+  .rc-admin-event-tab:hover:not(.rc-admin-event-tab--active) { color: var(--ink); }
+
+  .rc-admin-event-row { text-decoration: none; color: inherit; display: block; }
+
+  /* ------------------------------------------------------------------ builder */
+
+  .rc-admin-builder { display: flex; flex-direction: column; gap: 0; }
+
+  .rc-admin-builder-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem 1.25rem;
+  }
+
+  .rc-admin-game-picker { display: flex; flex-direction: column; gap: 0.625rem; margin-bottom: 1rem; }
+  .rc-admin-game-picker-row label {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: var(--text-rc-base);
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .rc-admin-game-order { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.875rem; border-radius: 0.5rem; background: var(--paper); }
+  .rc-admin-game-order li { display: flex; align-items: center; gap: 0.625rem; font-size: var(--text-rc-sm); }
+  .rc-admin-game-order button {
+    border: var(--hairline) solid var(--fg-line);
+    background: var(--paper-deep);
+    border-radius: 0.375rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    cursor: pointer;
+  }
+  .rc-admin-game-order button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .rc-admin-room-drafts { display: flex; flex-direction: column; gap: 0.625rem; margin-bottom: 1rem; }
+  .rc-admin-room-draft-row { display: grid; grid-template-columns: 1fr 8rem auto; gap: 0.625rem; }
+  .rc-admin-room-draft-row input {
+    min-height: 2.5rem;
+    padding: 0 0.75rem;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: 0.5rem;
+    background: var(--paper);
+    font-size: var(--text-rc-sm);
+  }
+  .rc-admin-room-draft-row button {
+    border: 0;
+    background: none;
+    color: var(--alert);
+    cursor: pointer;
+    font-size: var(--text-rc-sm);
+  }
+
+  .rc-admin-builder-review { width: 100%; margin-top: 0.5rem; }
+  .rc-admin-builder-review:disabled { background: var(--fg-muted); cursor: not-allowed; }
+
+  .rc-admin-review { display: grid; grid-template-columns: 10rem 1fr; gap: 0.625rem 1rem; font-size: var(--text-rc-sm); }
+  .rc-admin-review dt { font-weight: 700; color: var(--ink-soft); }
+  .rc-admin-review dd { margin: 0; }
+  .rc-admin-review-actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+  .rc-admin-review-actions .rc-admin-drawer-save { flex: 1 1 auto; }
+
+  @media (max-width: 48rem) {
+    .rc-admin-builder-grid { grid-template-columns: 1fr; }
+  }
 }

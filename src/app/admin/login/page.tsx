@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Staff sign in — RECESS" };
 
 export default async function AdminLoginPage() {
   const staff = await getStaffSession();
-  if (staff) redirect("/admin/overview");
+  if (staff) redirect("/admin/events");
 
   return (
     <main className="rc-admin-login">

@@ -23,7 +23,7 @@ export function LoginForm() {
         setError(result.message);
         return;
       }
-      router.push("/admin/overview");
+      router.push("/admin/events");
       router.refresh();
     } catch {
       setSubmitting(false);

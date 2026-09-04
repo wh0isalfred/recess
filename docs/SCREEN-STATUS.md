@@ -30,7 +30,7 @@ requested. Nothing moves past `REVIEW` without approval.
 | 06 | You're In | Reference supplied | Registration | REVIEW (local only — hosted registration path not yet exercised; see report) |
 | 07 | Event Pass | Reference supplied | Event | REVIEW |
 | 08 | Check-in | Reference supplied | Check-in | REVIEW |
-| 09 | Room | Reference supplied | Room | REVIEW |
+| 09 | Room | Reference supplied | Room | APPROVED |
 | 10 | Live Game | Reference required | Round | REFERENCE |
 | 11 | Between Games | Reference required | Score | REFERENCE |
 | 12 | Results | Reference required | Leaderboard | REFERENCE |
@@ -47,8 +47,17 @@ Not started. Screens to be listed when references are supplied.
 
 | # | Screen | Visual | Data | Status |
 |---|---|---|---|---|
-| A01 | Event Overview | Reference supplied | Live | REVIEW |
-| A02 | Rooms | Reference supplied | Live | REVIEW |
+| A01 | Event Overview | Reference supplied | Live | APPROVED (now at /admin/events/[slug]/overview — see note below) |
+| A02 | Rooms | Reference supplied | Live | APPROVED (now at /admin/events/[slug]/rooms — see note below) |
+| A03 | Events list | No reference — operational tool | Live | REVIEW |
+| A04 | New Event builder | No reference — operational tool | Live | REVIEW |
+
+A01/A02 moved from fixed routes (`/admin/overview`, `/admin/rooms`) to
+event-scoped routes (`/admin/events/[slug]/overview`, `/admin/events/[slug]/rooms`)
+to support multiple events — required once event creation exists and a
+separate test event is needed alongside the real one. Approval carries over;
+the pixels are unchanged, only the URL and the data source (now
+slug-parameterized instead of a fixed env var) moved.
 
 ## Final QA
 

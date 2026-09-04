@@ -31,4 +31,40 @@ export type RoomsOverview = { rooms: AdminRoom[]; waiting: WaitingPlayer[] };
 
 export type RoomMember = { alias: string; playerNumber: number; assignedAt: string };
 
+export type EventListItem = {
+  slug: string;
+  name: string;
+  status: string;
+  startsAt: string;
+  timezone: string;
+  timezoneLabel: string;
+  registeredCount: number;
+};
+
+export type EventDetail = {
+  slug: string;
+  name: string;
+  status: string;
+  startsAt: string;
+  timezone: string;
+  timezoneLabel: string;
+  registrationOpensAt: string | null;
+  registrationClosesAt: string | null;
+  checkinOpensAt: string | null;
+  checkinClosesAt: string | null;
+  capacity: number;
+  whatsappGroupUrl: string | null;
+  games: { eventGameId: string; gameId: string; slug: string; name: string; position: number }[];
+  rooms: { id: string; label: string; position: number; capacity: number | null }[];
+};
+
+export type GameLibraryEntry = {
+  id: string;
+  slug: string;
+  name: string;
+  platform: "BROWSER" | "INSTALL" | "NATIVE";
+  scoringTemplate: string;
+  defaultRoundCount: number;
+};
+
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; code: string; message: string };

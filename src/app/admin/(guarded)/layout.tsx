@@ -21,8 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   };
 
   const NAV = [
-    { href: "/admin/overview", label: "Overview", enabled: true },
-    { href: "/admin/rooms", label: "Rooms", enabled: true },
+    { href: "/admin/events", label: "Events", enabled: true },
     { href: "#", label: "Check-in", enabled: false },
     { href: "#", label: "Games", enabled: false },
     { href: "#", label: "Live Control", enabled: false },
