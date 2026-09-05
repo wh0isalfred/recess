@@ -5,7 +5,7 @@
 -- CHECK_IN, with small room capacities to exercise "full" cleanly. Isolated
 -- inside the same transaction/rollback as the rest of the suite.
 begin;
-select plan(29);
+select plan(30);
 
 create or replace function pg_temp.as_player(p_uid uuid) returns void
 language sql as $$
@@ -224,14 +224,19 @@ select is(
   (select public.get_player_state()->'event'->>'whatsappGroupUrl' is null),
   true, 'test 39: whatsappGroupUrl is absent on the CHECK_IN_OPEN view, not just PASS_COUNTDOWN');
 
--- re-check as the FIRST player (ROOM_ASSIGNED) that no room whatsapp/url leaks
--- and that the room's own url is not part of this payload at all yet
+-- re-check as the FIRST player (ROOM_ASSIGNED). Migration 0018 deliberately
+-- extended this payload to carry the room's real whatsappGroupUrl (Screen
+-- 09), so the key is now always present — but ROOM A in this fixture has no
+-- url configured, so its value must be null, never a fabricated placeholder.
 select pg_temp.as_player(gen_random_uuid());
 update public.event_registrations set auth_user_id = (select current_setting('request.jwt.claim.sub')::uuid)
  where alias = 'FIRST';
 select is(
   (select public.get_player_state()->'room' ? 'whatsappGroupUrl'),
-  false, 'test 39: the room payload never includes a whatsapp url in this phase');
+  true, 'test 39: the room payload (0018) always includes a whatsappGroupUrl key');
+select is(
+  (select public.get_player_state()->'room'->>'whatsappGroupUrl'),
+  null, 'test 39: whatsappGroupUrl is null, not a fabricated url, when the room has none configured');
 
 select * from finish();
 rollback;
