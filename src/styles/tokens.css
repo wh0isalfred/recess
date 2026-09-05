@@ -94,6 +94,14 @@
   --lift-control-pressed: 0 0 0 var(--accent-offset);
   --lift-paper: 3px 3px 0 var(--fg-faint);
 
+  /* The one poster-scale control on acquisition surfaces (V2 Landing's I'M
+     IN): ink offset + ink border, not the pink-deep offset every other
+     control uses. Acquisition is allowed to be louder than product — scoped
+     to its own tokens rather than changed system-wide, so nothing already
+     approved on --lift-control shifts underneath it. */
+  --lift-poster: 6px 6px 0 var(--fg);
+  --lift-poster-pressed: 2px 2px 0 var(--fg);
+
   /* ================================================================ MOTION
      Physical, not decorative. Presses land; nothing floats.              */
 

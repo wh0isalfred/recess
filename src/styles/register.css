@@ -8,10 +8,12 @@
 
 @layer components {
   .rc-reg {
-    /* Matches the approved artwork's paper stock, so moving from the landing
-       poster into registration does not shift the paper tone. This override
-       and the one in arrival.css should collapse into a --paper token change
-       once that is agreed. */
+    /* Matches this screen's own approved artwork paper stock. V2 Landing
+       (landing.css) now measures a slightly lighter/warmer cream off its
+       own reference and does not share this value — the two intentionally
+       diverge for now rather than shifting this already-approved screen's
+       tone to match an unrelated slice. Worth revisiting once Registration
+       gets its own V2 pass. */
     --ground: #f6e7d4;
     min-height: 100svh;
   }

@@ -1,0 +1,161 @@
+/* ===========================================================================
+   Screen 02 Landing (V2) — the only state of `/`.
+
+   Replaces the old Screens 01 Arrival + 02 Landing splash/crossfade pair
+   (see docs/SCREEN-STATUS.md). One composition, no phase, no entrance timer.
+   Colour, motion and texture still come from tokens.css; every measurement
+   below is taken off the approved V2 reference, a 390 x 690-ish viewport,
+   then trimmed so the CTA stays on-screen at that same height without
+   scrolling (see delivery report — the first pass overflowed both axes).
+   =========================================================================== */
+
+@layer components {
+  .rc-landing {
+    /* The reference's paper reads a touch lighter/warmer than the shared
+       --paper token, matched here rather than changing the token every
+       other approved screen also uses. */
+    --ground: #faf6ec;
+    min-height: 100svh;
+    overflow-x: hidden;
+  }
+
+  .rc-landing-frame {
+    position: relative;
+    width: 100%;
+    max-width: 26rem;
+    margin: 0 auto;
+    min-height: 100svh;
+    padding: 1rem 1.5rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------------------------------------------------------------- brand */
+
+  .rc-landing-brand {
+    align-self: flex-start;
+  }
+
+  .rc-landing-wordmark {
+    display: block;
+    width: 8rem;
+    height: auto;
+    color: var(--fg);
+  }
+
+  /* ------------------------------------------------------------- headline */
+
+  .rc-landing-headline {
+    margin: 0.75rem 0 0;
+    width: 100%;
+  }
+
+  .rc-landing-headline-art {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* ------------------------------------------------------------------ hero */
+
+  .rc-landing-hero {
+    margin: 0 0 0 auto;
+    width: 88%;
+  }
+
+  .rc-landing-hero-art {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* -------------------------------------------------------------------meta */
+
+  .rc-landing-meta {
+    margin-top: auto;
+    padding-top: 0.75rem;
+  }
+
+  .rc-landing-eyebrow {
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-soft);
+  }
+
+  .rc-landing-date {
+    margin: 0.125rem 0 0;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-xl);
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+  }
+
+  .rc-landing-subline {
+    margin-top: 0.375rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--fg-soft);
+  }
+
+  .rc-landing-dot {
+    color: var(--fg-line);
+  }
+
+  /* -------------------------------------------------------------------- CTA */
+
+  .rc-landing-frame > .rc-landing-explain,
+  .rc-landing-frame > a,
+  .rc-landing-frame > button {
+    margin-top: 1rem;
+  }
+
+  /* --------------------------------------------------------------- explain */
+
+  .rc-landing-explain {
+    margin-top: 0.5rem;
+    text-align: center;
+  }
+
+  .rc-landing-explain-toggle {
+    min-height: var(--rc-tap-sm);
+    padding: 0 0.5rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fg-soft);
+    text-decoration: underline;
+    text-decoration-color: var(--fg-line);
+    text-underline-offset: 0.25em;
+    background: none;
+    border: none;
+  }
+
+  .rc-landing-explain-toggle:hover {
+    text-decoration-color: currentColor;
+  }
+
+  .rc-landing-explain-panel {
+    max-width: 20rem;
+    margin: 0.5rem auto 0;
+    font-size: var(--text-rc-sm);
+    line-height: 1.6;
+    color: var(--fg-soft);
+  }
+
+  /* ================================================================= DESKTOP
+     Same poster, more paper — capped at its own measure and centred rather
+     than stretched across the viewport. */
+
+  @media (min-width: 52rem) {
+    .rc-landing-frame { padding: 2rem 1.75rem 2rem; max-width: 28rem; }
+    .rc-landing-wordmark { width: 9.5rem; }
+  }
+}

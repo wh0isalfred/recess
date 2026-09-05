@@ -1,6 +1,6 @@
 @import "tailwindcss" source(none);
 @import "../styles/tokens.css";
-@import "../styles/arrival.css";
+@import "../styles/landing.css";
 @import "../styles/register.css";
 @import "../styles/pass.css";
 @import "../styles/event-pass.css";
@@ -91,6 +91,8 @@
   --shadow-control: var(--lift-control);
   --shadow-control-pressed: var(--lift-control-pressed);
   --shadow-paper: var(--lift-paper);
+  --shadow-poster: var(--lift-poster);
+  --shadow-poster-pressed: var(--lift-poster-pressed);
 
   --container-player: var(--measure-player);
   --container-read: var(--measure-read);

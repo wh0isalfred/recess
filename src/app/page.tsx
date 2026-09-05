@@ -1,20 +1,7 @@
 import type { Metadata } from "next";
 import { resolvePlayerIdentity } from "@/features/pass/actions";
-import { ArrivalLanding, type EventCard } from "./ArrivalLanding";
-
-/**
- * Placeholder event card for the visual pass. Screen 02's data column is not
- * connected yet — this moves to the event record in the CONNECT step, per
- * docs/SCREEN-STATUS.md. Nothing downstream reads these strings.
- */
-const EVENT: EventCard = {
-  day: "FRI",
-  date: "11",
-  monthYear: "SEPT 2026",
-  time: "8:00",
-  meridiem: "PM",
-  zone: "WAT",
-};
+import { getPublicEventInfo } from "@/features/landing/event";
+import { Landing } from "./Landing";
 
 export const metadata: Metadata = {
   title: "RECESS",
@@ -31,6 +18,7 @@ export default async function HomePage() {
   // than adding a second retry surface is a deliberate choice, not the same
   // shortcut the onboarding guards specifically avoid.
   const identity = await resolvePlayerIdentity();
+  const event = await getPublicEventInfo();
 
-  return <ArrivalLanding event={EVENT} registered={identity.status === "registered"} />;
+  return <Landing event={event} registered={identity.status === "registered"} />;
 }

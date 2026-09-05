@@ -1,9 +1,7 @@
 /**
- * The play mark — three figures under a burst. Same glyph used on V2
- * Landing (`src/app/Landing.tsx`); duplicated here rather than shared,
- * since this screen's own approved visual predates that component and
- * shouldn't start depending on a different slice's file. Inherits
- * `currentColor`.
+ * The play mark — three figures under a burst. Same glyph as the arrival
+ * splash; duplicated here rather than imported from ArrivalLanding.tsx,
+ * which is approved and untouched. Inherits `currentColor`.
  */
 export function PlayMark({ className }: { className?: string }) {
   return (

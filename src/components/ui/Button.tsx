@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "poster";
 export type ButtonSize = "lg" | "sm";
 
 const base =
@@ -30,6 +30,16 @@ const variants: Record<ButtonVariant, string> = {
   danger:
     "rounded-control bg-alert text-paper " +
     "active:translate-y-[2px] aria-disabled:opacity-50",
+  // The one poster-scale control: acquisition, not product (see BRAND.md —
+  // "acquisition is expressive, product is disciplined"). Ink border + ink
+  // offset rather than the pink-deep offset every other control uses, and
+  // the offset is deep enough that press feels like it lands, not just
+  // shifts. Label and arrow sit as one centered group, not spread to the
+  // edges — this control is a poster plate, not a row.
+  poster:
+    "rounded-control border-[length:var(--hairline)] border-fg bg-accent text-fg " +
+    "shadow-poster active:translate-y-[6px] active:shadow-poster-pressed " +
+    "aria-disabled:bg-fg-muted aria-disabled:text-fg-soft aria-disabled:border-fg-line",
   // Not a button pretending to be a link. A link that happens to be tappable.
   ghost:
     "min-h-tap-sm px-0 font-ui text-rc-sm text-fg-soft underline " +
