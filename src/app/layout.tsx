@@ -25,8 +25,13 @@ const ui = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "RECESS",
-  description: "Our night to embrace that inner child and have real fun.",
+  title: {
+    default: "RECESS",
+    template: "%s · RECESS",
+  },
+  description:
+    "RECESS is our night to embrace that inner child and have real fun.",
+  applicationName: "RECESS",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
