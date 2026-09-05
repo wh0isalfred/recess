@@ -73,6 +73,17 @@
   --warn-wash: color-mix(in oklab, var(--warn) 14%, transparent);
   --alert-wash: color-mix(in oklab, var(--alert) 12%, transparent);
 
+  /* Avatar initials (migration 0020's 8-color palette) default to --fg
+     (ink), but two entries (#2F6BFF, #7C5CFC) measure below 4.5:1 against
+     ink at the initial's actual rendered size — verified with the real
+     WCAG relative-luminance formula, not assumed. Pure black clears 4.5:1
+     against both (4.67 / 4.79) where ink (4.07 / 4.18) and white (4.50 /
+     4.38) each still fail at least one. The palette itself is unchanged —
+     this is a text-color accommodation for two entries, computed at
+     runtime by PlayerAvatar from the actual passed-in color, not a
+     hardcoded per-color list. */
+  --avatar-fg-strong: #000;
+
   /* ================================================================== GEOMETRY
      Radius encodes role, not decoration. Paper does not have rounded
      corners; things you touch do.                                        */

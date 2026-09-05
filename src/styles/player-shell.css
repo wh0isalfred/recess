@@ -1,0 +1,138 @@
+/* ===========================================================================
+   Player Shell V2 — the registered-player foundation: bounded canvas,
+   safe-area handling, persistent bottom nav. Shared by every registered-
+   player screen going forward; only PASS_COUNTDOWN uses it this slice.
+   =========================================================================== */
+
+@layer components {
+  .rc-shell {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    background: var(--paper);
+  }
+
+  .rc-shell-canvas {
+    flex: 1;
+    width: 100%;
+    max-width: 26rem;
+    margin: 0 auto;
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* ------------------------------------------------------------------- nav */
+
+  .rc-shell-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    background: var(--paper);
+    border-top: var(--hairline) solid var(--fg-line);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .rc-shell-nav-inner {
+    display: flex;
+    max-width: 26rem;
+    margin: 0 auto;
+  }
+
+  .rc-shell-nav-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 4.25rem;
+    color: var(--fg-soft);
+    transition: color var(--t-state) var(--ease-press);
+  }
+
+  .rc-shell-nav-tab[data-active="true"] {
+    color: var(--accent-text);
+  }
+
+  .rc-shell-nav-tab:focus-visible {
+    outline: 3px solid var(--amber);
+    outline-offset: -3px;
+  }
+
+  .rc-shell-nav-icon {
+    width: 1.5rem;
+    height: auto;
+  }
+
+  .rc-shell-nav-label {
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  /* -------------------------------------------------------------- identity */
+
+  .rc-shell-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+  }
+
+  .rc-shell-identity-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.2;
+  }
+
+  .rc-shell-identity-alias {
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .rc-shell-identity-number {
+    font-size: var(--text-rc-xs);
+    color: var(--fg-soft);
+  }
+
+  /* ------------------------------------------------------------- avatar */
+
+  .rc-avatar-v2 {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    border-radius: 50%;
+    color: var(--fg);
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
+  .rc-avatar-v2--ring {
+    box-shadow: 0 0 0 2px var(--paper);
+  }
+
+  /* --------------------------------------------------------- placeholder */
+
+  .rc-shell-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60svh;
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--fg-soft);
+    font-size: var(--text-rc-base);
+  }
+
+  @media (min-width: 52rem) {
+    .rc-shell-canvas,
+    .rc-shell-nav-inner {
+      max-width: 28rem;
+    }
+  }
+}

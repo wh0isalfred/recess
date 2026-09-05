@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "poster";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "poster" | "poster-quiet";
 export type ButtonSize = "lg" | "sm";
 
 const base =
@@ -40,6 +40,14 @@ const variants: Record<ButtonVariant, string> = {
     "rounded-control border-[length:var(--hairline)] border-fg bg-accent text-fg " +
     "shadow-poster active:translate-y-[6px] active:shadow-poster-pressed " +
     "aria-disabled:bg-fg-muted aria-disabled:text-fg-soft aria-disabled:border-fg-line",
+  // The WhatsApp CTA after its first open: still a full tactile control, on
+  // purpose — "do not style it like a disabled button" (opening an external
+  // link is not a fact we can verify, so this never becomes aria-disabled).
+  // Only the fill/border demote to neutral; depth and press behavior are
+  // identical to poster.
+  "poster-quiet":
+    "rounded-control border-[length:var(--hairline)] border-fg-line bg-ground-lift text-fg " +
+    "shadow-poster active:translate-y-[6px] active:shadow-poster-pressed",
   // Not a button pretending to be a link. A link that happens to be tappable.
   ghost:
     "min-h-tap-sm px-0 font-ui text-rc-sm text-fg-soft underline " +
@@ -52,6 +60,8 @@ type Props = {
   variant?: ButtonVariant;
   size?: ButtonSize;
   href?: string;
+  /** Renders a real `<a target="_blank" rel="noreferrer">` instead of next/link — for genuine external destinations (WhatsApp) only. */
+  external?: boolean;
   disabled?: boolean;
   /** Shows a spinner and blocks repeat presses. Every write in RECESS has one. */
   loading?: boolean;
@@ -76,6 +86,7 @@ export function Button({
   variant = "primary",
   size = "lg",
   href,
+  external = false,
   disabled = false,
   loading = false,
   loadingLabel = "Sending",
@@ -104,6 +115,14 @@ export function Button({
       {arrow ? <span aria-hidden="true">&rarr;</span> : null}
     </>
   );
+
+  if (href && external && !inert) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" onClick={onClick} className={className}>
+        {content}
+      </a>
+    );
+  }
 
   if (href && !inert) {
     return (

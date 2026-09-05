@@ -21,7 +21,7 @@ requested. Nothing moves past `REVIEW` without approval.
 ## Identity & Session Continuity
 
 Not a screen — a cross-cutting behavior layered onto the existing Player
-screens (01/02, 03, 05, 06, 07, 08, 09) without changing any of their visuals.
+screens (01/02, 03, 05, 07, 08, 09) without changing any of their visuals.
 Tracked here rather than against one screen row because it touches five
 routes at once: `/register`, `/register/alias`, `/register/whatsapp`,
 `/pass`, and `/`.
@@ -49,13 +49,33 @@ refresh → duplicate-prevention) has actually been run.
 |---|---|---|---|---|
 | 01/02 | Landing (V2) | Reference supplied | Event | REVIEW |
 | 03/04/05 | Registration (V2) — Name / Alias / WhatsApp | Reference supplied | Registration | REVIEW |
-| 06 | You're In | Reference supplied | Registration | **Unreachable as of Registration V2** — see delivery report. The V2 WhatsApp step's own in-place "Registration Complete" transition now covers this moment; it no longer calls `markPassFresh()`, so this screen's trigger condition can never fire. Not deleted (Pass is a separate slice) — flagging for a decision alongside Pass's own V2 pass. |
-| 07 | Event Pass | Reference supplied | Event | REVIEW |
+| 06 | You're In | — | — | **Removed this slice.** Confirmed unreachable (nothing calls `markPassFresh()` since Registration V2 — see that slice's note, previously left in place pending confirmation). Player Shell V2 / Pass V2 touches Pass directly, so per instruction the dead screen, its Confetti/Confirmed code, and its only-used-there helpers (`greeting.ts`, `countdown.ts`, `fresh.ts`, `event-pass.css`) were deleted rather than left as a zombie path. |
+| 07 | Pass (V2) — PASS_COUNTDOWN pre-event | Reference supplied | Event + Player + SocialProof | REVIEW |
 | 08 | Check-in | Reference supplied | Check-in | REVIEW |
 | 09 | Room | Reference supplied | Room | APPROVED |
 | 10 | Live Game | Reference required | Round | REFERENCE |
 | 11 | Between Games | Reference required | Score | REFERENCE |
 | 12 | Results | Reference required | Leaderboard | REFERENCE |
+| — | Games | No reference — minimal placeholder only | — | REFERENCE |
+| — | Players | No reference — minimal placeholder only | — | REFERENCE |
+| — | More | No reference — minimal placeholder only | — | REFERENCE |
+
+**Player Shell V2** (`src/features/player-shell/`) — cross-cutting registered-
+player infrastructure, not a screen of its own: the bounded canvas, safe-area
+handling, and persistent bottom nav (Pass/Games/Players/More) that Pass V2
+now renders inside. Applied to `PASS_COUNTDOWN` only this slice —
+`WAITLISTED`/`CHECK_IN_OPEN`/`ROOM_ASSIGNED`/`CHECKED_IN_WAITING`/the plain
+fallback keep their existing presentation, unwrapped, since retrofitting
+nav onto explicitly out-of-scope screens risked inconsistent UX worse than
+consistently absent nav until each gets its own V2 pass.
+
+**Persistent avatar color** (migration 0020) — every player has one
+permanent, randomly-assigned color from an 8-value palette, stored on
+`players.avatar_color`, surfaced via `get_player_state()` as
+`player.avatarColor`. Used by the new `components/brand/v2/PlayerAvatar.tsx`
+(Pass header, social proof) — kept deliberately separate from the pre-V2
+`components/brand/PlayerAvatar.tsx` (alias-hash color, silhouette glyph),
+which Room (Screen 09, `APPROVED`) and the admin room-member view still use.
 
 Screens 01 (Arrival) and 02 (Landing) have merged into one V2 Landing slice:
 the old splash → crossfade → landing sequence is gone, replaced by a single
@@ -101,13 +121,16 @@ Run once every player screen is `VERIFIED`.
 
 | Asset | Path | Screens |
 |---|---|---|
-| RECESS wordmark (V2, vector trace) | `src/components/brand/v2/RecessWordmark.tsx` | 01/02, 03/04/05 |
-| "ALL WORK. NO PLAY..." lettering + brush (V2, vector trace) | `public/brand/v2/all-work-no-play.svg` | 01/02 |
-| Hero pawn + die composition (V2, raster — dimensional shading) | `public/brand/v2/hero-pawn-die.webp` | 01/02 |
+| RECESS wordmark (V2, vector trace) | `src/components/brand/v2/RecessWordmark.tsx` | 01/02, 03/04/05, 07 |
+| "ALL WORK. NO PLAY..." lettering + brush (V2, vector trace) | `public/brand/v2/all-work-no-play.svg` | 01/02, 07 (reused, not duplicated) |
+| Hero pawn + die composition (V2, raster — dimensional shading) | `public/brand/v2/hero-pawn-die.webp` | 01/02, 07 (reused, not duplicated) |
 | Name illustration — pawn + ticket (V2, raster) | `public/brand/v2/onboarding-name.webp` | 03 |
 | Alias illustration — dimensional die + brush (V2, raster) | `public/brand/v2/onboarding-alias.webp` | 04 |
 | WhatsApp illustration — ticket (V2, raster) | `public/brand/v2/onboarding-whatsapp.webp` | 05 |
 | Pink exploding die | `public/brand/old/die-pink.webp` | 08 |
+| Bottom-nav icons — Pass/Games/Players/More (V2, traced from reference) | `src/components/brand/v2/icons.tsx` | Player Shell (07+) |
+| WhatsApp / arrow-right icons (V2, hand-authored reconstructions) | `src/components/brand/v2/icons.tsx` | 07 |
+| Player avatar — persistent color + alias initial (V2) | `src/components/brand/v2/PlayerAvatar.tsx` | 07, social proof |
 
 The V1 pawn/knight/rook assets (`pawn-pink.webp`, `knight-orange.webp`,
 `rook-pink.webp`) and their sole component wrapper (`PawnMark.tsx`) are

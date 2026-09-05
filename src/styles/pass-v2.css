@@ -1,0 +1,187 @@
+/* ===========================================================================
+   Pass V2 — PASS_COUNTDOWN. Reuses Landing's canonical V2 hero assets and
+   proportions; adds the player identity header and social proof, and
+   leaves room at the bottom for the fixed Player Shell nav (handled by
+   rc-shell-canvas's own bottom padding, not duplicated here).
+   =========================================================================== */
+
+@layer components {
+  .rc-pass2-stage {
+    padding: 1rem 1.5rem 1.5rem;
+  }
+
+  /* ------------------------------------------------------------------- top */
+
+  .rc-pass2-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .rc-pass2-wordmark {
+    display: block;
+    width: 7rem;
+    height: auto;
+    color: var(--fg);
+  }
+
+  /* ------------------------------------------------------------- headline */
+
+  .rc-pass2-headline {
+    margin: 0.75rem 0 0;
+    width: 100%;
+  }
+
+  .rc-pass2-headline-art {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* ------------------------------------------------------------------ hero */
+
+  .rc-pass2-hero {
+    margin: 0 0 0 auto;
+    width: 88%;
+  }
+
+  .rc-pass2-hero-art {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* ------------------------------------------------------------------ event */
+
+  .rc-pass2-event {
+    margin-top: 1rem;
+  }
+
+  .rc-pass2-eyebrow {
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-soft);
+  }
+
+  .rc-pass2-date {
+    margin: 0.125rem 0 0;
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-xl);
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+  }
+
+  .rc-pass2-subline {
+    margin-top: 0.375rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--fg-soft);
+  }
+
+  .rc-pass2-dot {
+    color: var(--fg-line);
+  }
+
+  /* -------------------------------------------------------------------- CTA */
+
+  .rc-pass2-cta {
+    margin-top: 1.25rem;
+  }
+
+  .rc-pass2-cta-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--text-rc-sm);
+    white-space: nowrap;
+  }
+
+  .rc-pass2-cta-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex: none;
+  }
+
+  .rc-pass2-cta-arrow {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex: none;
+  }
+
+  .rc-pass2-cta-helper {
+    margin-top: 0.625rem;
+    font-size: var(--text-rc-sm);
+    color: var(--fg-soft);
+    text-align: center;
+  }
+
+  .rc-pass2-cta-pending {
+    min-height: var(--rc-tap);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: var(--hairline) dashed var(--fg-line);
+    border-radius: var(--r-control);
+    font-size: var(--text-rc-sm);
+    color: var(--fg-soft);
+  }
+
+  /* --------------------------------------------------------------- social */
+
+  .rc-pass2-social {
+    margin-top: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .rc-pass2-social-stack {
+    display: flex;
+    flex: none;
+  }
+
+  .rc-pass2-social-avatar:not(:first-child) {
+    margin-left: -0.625rem;
+  }
+
+  .rc-pass2-social-divider {
+    width: var(--hairline);
+    align-self: stretch;
+    background: var(--fg-line);
+    flex: none;
+  }
+
+  .rc-pass2-social-text {
+    min-width: 0;
+  }
+
+  .rc-pass2-social-count {
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .rc-pass2-social-names {
+    margin-top: 0.125rem;
+    font-size: var(--text-rc-xs);
+    color: var(--fg-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ================================================================= DESKTOP */
+
+  @media (min-width: 52rem) {
+    .rc-pass2-stage { padding: 1.5rem 1.75rem 2rem; }
+    .rc-pass2-wordmark { width: 7.75rem; }
+  }
+}

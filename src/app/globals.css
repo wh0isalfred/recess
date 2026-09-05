@@ -3,7 +3,8 @@
 @import "../styles/landing.css";
 @import "../styles/register.css";
 @import "../styles/pass.css";
-@import "../styles/event-pass.css";
+@import "../styles/player-shell.css";
+@import "../styles/pass-v2.css";
 @import "../styles/check-in.css";
 @import "../styles/room.css";
 @import "../styles/admin.css";

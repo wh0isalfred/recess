@@ -43,6 +43,7 @@ export type PlayerStateGame = {
 export type PlayerState = {
   view: PlayerView;
   event: {
+    id: string;
     slug: string;
     name: string;
     status: string;
@@ -53,10 +54,13 @@ export type PlayerState = {
     whatsappGroupUrl: string | null;
   };
   player: {
+    registrationId: string;
     alias: string;
     number: number;
     registrationStatus: "REGISTERED" | "WAITLISTED" | "CANCELLED";
     checkedInAt: string | null;
+    /** Permanent per-player identity — assigned once, migration 0020. */
+    avatarColor: string;
   };
   checkIn: {
     opensAt: string | null;
@@ -76,6 +80,18 @@ export type PlayerState = {
   upFirstGame?: PlayerStateGame | null;
   /** Present only on the PASS_COUNTDOWN view. */
   games?: PlayerStateGame[];
+  /**
+   * Present only on the PASS_COUNTDOWN view — migration 0020. alias +
+   * avatarColor only, admitted (REGISTERED) players only, ordered by
+   * player_number. `avatars`/`previewAliases` are capped server-side (6/3);
+   * the remainder for "+ N others" is computed client-side from
+   * `admittedCount`, not from array length.
+   */
+  socialProof?: {
+    admittedCount: number;
+    avatars: { alias: string; avatarColor: string }[];
+    previewAliases: string[];
+  };
 };
 
 export type CheckInResult =

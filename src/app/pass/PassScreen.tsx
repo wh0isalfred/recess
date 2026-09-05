@@ -1,96 +1,22 @@
-"use client";
-
-import { useEffect, useSyncExternalStore } from "react";
 import { Surface } from "@/components/ui/Surface";
-import { Ticket } from "@/components/ui/Ticket";
 import { PlayMark } from "@/components/brand/PlayMark";
 import { PosterLine } from "@/components/brand/RecessWordmark";
 import type { RegistrationState } from "@/features/registration/types";
-import {
-  downloadEventIcs,
-  formatEventDate,
-  formatEventTime,
-  formatPlayerNumber,
-  isValidWhatsAppGroupUrl,
-} from "@/features/registration/calendar";
+import { formatEventDate, formatPlayerNumber } from "@/features/registration/calendar";
 import type { PlayerState } from "@/features/pass/types";
-import { clearPassFreshFlag, hasPassFreshFlag } from "@/features/pass/fresh";
-import { EventPassScreen } from "./EventPassScreen";
+import { PlayerShell } from "@/features/player-shell/PlayerShell";
+import { PassCountdownScreen } from "./PassCountdownScreen";
 import { CheckInScreen } from "./CheckInScreen";
 import { RoomAssignedScreen } from "./RoomAssignedScreen";
 import { WaitingForRoomScreen } from "./WaitingForRoomScreen";
 
 /**
- * The Screen 06 celebration and its waitlisted sibling, unchanged from
- * before this task — only the props feeding them now come from
- * get_player_state() instead of get_my_registration(), adapted below.
+ * WAITLISTED's own screen — unchanged from before this task, only the props
+ * feeding it now come from get_player_state() rather than
+ * get_my_registration(), adapted below by toRegistrationState(). Out of
+ * scope for the Pass V2 slice (the brief only covers PASS_COUNTDOWN); left
+ * exactly as it was.
  */
-function Confetti() {
-  const pieces = [
-    { x: "10%", y: "6%", r: -18, c: "var(--pink-lift)" },
-    { x: "82%", y: "4%", r: 24, c: "var(--amber)" },
-    { x: "92%", y: "16%", r: -10, c: "var(--pink-lift)" },
-    { x: "6%", y: "22%", r: 30, c: "var(--amber)" },
-    { x: "88%", y: "30%", r: -22, c: "var(--pink-lift)" },
-    { x: "14%", y: "34%", r: 14, c: "var(--amber)" },
-  ];
-  return (
-    <div className="rc-pass-confetti" aria-hidden="true">
-      {pieces.map((p, i) => (
-        <span key={i} style={{ left: p.x, top: p.y, background: p.c, transform: `rotate(${p.r}deg)` }} />
-      ))}
-    </div>
-  );
-}
-
-function Confirmed({ registration }: { registration: RegistrationState }) {
-  const hasGroup = isValidWhatsAppGroupUrl(registration.whatsappGroupUrl);
-  return (
-    <>
-      <PlayMark className="rc-pass-mark" />
-      <h1 className="rc-pass-heading">
-        <PosterLine text="YOU'RE IN." ratio={6.6} />
-      </h1>
-      <p className="rc-pass-alias rc-numeric">{registration.alias}</p>
-      <div className="rc-pass-ticket rc-stamp">
-        <Ticket label="Player number" value={formatPlayerNumber(registration.playerNumber)} />
-      </div>
-      <div className="rc-pass-schedule">
-        <p>
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-            <rect x="2" y="3" width="12" height="11" rx="1.5" />
-            <path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" />
-          </svg>
-          {formatEventDate(registration.startsAt, registration.timezone)}
-        </p>
-        <p>
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-            <circle cx="8" cy="8" r="6.3" />
-            <path d="M8 4.5V8l3 1.8" />
-          </svg>
-          {formatEventTime(registration.startsAt, registration.timezone)} {registration.timezoneLabel}
-        </p>
-      </div>
-      {hasGroup ? (
-        <a href={registration.whatsappGroupUrl!} className="rc-pass-whatsapp" target="_blank" rel="noreferrer">
-          JOIN WHATSAPP GROUP <span aria-hidden="true">→</span>
-        </a>
-      ) : (
-        <p className="rc-pass-whatsapp rc-pass-whatsapp--pending" aria-live="polite">
-          WhatsApp group link coming soon
-        </p>
-      )}
-      <button type="button" className="rc-pass-calendar" onClick={() => downloadEventIcs(registration)}>
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-          <rect x="2" y="3" width="12" height="11" rx="1.5" />
-          <path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" />
-        </svg>
-        ADD TO CALENDAR
-      </button>
-    </>
-  );
-}
-
 function Waitlisted({ registration }: { registration: RegistrationState }) {
   return (
     <>
@@ -111,8 +37,7 @@ function Waitlisted({ registration }: { registration: RegistrationState }) {
 /**
  * A checked-in player in a state Screen 09 doesn't cover (LIVE, results,
  * event cancelled) must still land somewhere true, not blank or pretending
- * to be a finished screen. Plain, in the system's own type and colour — the
- * same treatment WAITLISTED already got before it had a reference.
+ * to be a finished screen. Plain, in the system's own type and colour.
  * CHECKED_IN_WAITING and ROOM_ASSIGNED have their own real screens now, so
  * they no longer route here — see the dispatch below.
  */
@@ -152,21 +77,17 @@ function toRegistrationState(state: PlayerState): RegistrationState {
   };
 }
 
-const NO_SUBSCRIPTION = () => () => {};
-
+/**
+ * Registration Complete (src/features/registration/RegistrationComplete.tsx)
+ * now handles the successful-registration moment in place, before ever
+ * navigating here — so PASS_COUNTDOWN always renders the calm Pass V2
+ * directly. The previous "fresh" celebration branch
+ * (Confetti/Confirmed/hasPassFreshFlag) is gone: nothing calls
+ * markPassFresh() anymore (confirmed via repository search before removing
+ * this), so it was genuinely dead code, not just superseded — see the
+ * delivery report.
+ */
 export function PassScreen({ state }: { state: PlayerState }) {
-  // Hydration-safe read: the server always renders as if the flag is unset
-  // (sessionStorage doesn't exist there), and the client's real value —
-  // possibly different — arrives via useSyncExternalStore's dedicated path
-  // for exactly this without a mismatch warning. The flag is cleared
-  // separately, in a plain effect below, never inside this getSnapshot,
-  // which React may call more than once per render and must stay pure.
-  const fresh = useSyncExternalStore(NO_SUBSCRIPTION, hasPassFreshFlag, () => false);
-
-  useEffect(() => {
-    if (fresh) clearPassFreshFlag();
-  }, [fresh]);
-
   if (state.view === "WAITLISTED") {
     return (
       <Surface as="main" ground="night" grain="low" className="rc-pass">
@@ -178,23 +99,10 @@ export function PassScreen({ state }: { state: PlayerState }) {
   }
 
   if (state.view === "PASS_COUNTDOWN") {
-    // useSyncExternalStore resolves the real client value synchronously
-    // during hydration, before paint — so a genuinely fresh registration
-    // does not flash Screen 07 before settling on the celebration.
-    if (!fresh) {
-      return (
-        <Surface as="main" ground="paper" grain="low" className="rc-evp">
-          <EventPassScreen state={state} />
-        </Surface>
-      );
-    }
     return (
-      <Surface as="main" ground="night" grain="low" className="rc-pass">
-        <Confetti />
-        <div className="rc-pass-stage">
-          <Confirmed registration={toRegistrationState(state)} />
-        </div>
-      </Surface>
+      <PlayerShell active="pass">
+        <PassCountdownScreen state={state} />
+      </PlayerShell>
     );
   }
 
