@@ -1,59 +1,76 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { Surface } from "@/components/ui/Surface";
-import { BrushGesture, RecessWordmark } from "@/components/brand/RecessWordmark";
+import { RecessWordmarkV2 } from "@/components/brand/v2/RecessWordmark";
 
 /**
- * The chrome every registration step shares: paper ground, the leave control,
- * the step counter over its dots, and the small RECESS lockup. Extracted from
- * Screen 03 unchanged — the markup and classes are identical, so 03 renders
- * exactly as approved.
+ * V2 onboarding shell — shared chrome for Name/Alias/WhatsApp.
  *
- * Everything below the lockup is the step's own composition and stays in the
- * step, because no two of them are laid out the same way.
+ * Replaces the V1 shell (X-close, dot progress, wordmark+brush lockup) with
+ * the approved V2 treatment: a back chevron whose destination/behavior each
+ * step controls (step 1 leaves to Landing; steps 2-3 step back preserving
+ * their own draft field — see each Step's own `back()`), the canonical V2
+ * wordmark centered, a step counter, and a three-segment fill bar instead of
+ * dots. Registration is deliberately quieter than Landing (BRAND.md:
+ * acquisition is expressive, product is disciplined) — no pawn/die hero
+ * poster here, low grain, real UI text instead of poster lettering.
+ *
+ * `hideChrome` drops the header entirely for the post-submit Registration
+ * Complete transition (WhatsAppStep) — that moment is a transition, not
+ * another onboarding step, and showing "3/3" over a success mark would be
+ * exactly the "additional confirmation screen" the brief says not to add.
  */
 export function RegistrationShell({
   step,
   total = 3,
+  onBack,
+  hideChrome = false,
   children,
 }: {
   step: number;
   total?: number;
+  onBack?: () => void;
+  hideChrome?: boolean;
   children: ReactNode;
 }) {
   return (
-    <Surface as="main" ground="paper" grain="mid" className="rc-reg">
+    <Surface as="main" ground="paper" grain="low" className="rc-reg">
       <div className="rc-reg-stage">
-        <div className="rc-reg-top">
-          <Link href="/" className="rc-reg-close" aria-label="Leave registration">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2"
-              strokeLinecap="round" aria-hidden="true">
-              <path d="M3 3l14 14M17 3L3 17" />
-            </svg>
-          </Link>
+        {hideChrome ? null : (
+          <>
+            <div className="rc-reg-top">
+              <button
+                type="button"
+                className="rc-reg-back-chevron"
+                onClick={onBack}
+                aria-label="Back"
+              >
+                <svg viewBox="0 0 12 20" fill="none" stroke="currentColor" strokeWidth="2.2"
+                  strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M10 2 2 10l8 8" />
+                </svg>
+              </button>
 
-          <div className="rc-reg-steps">
-            <span className="rc-reg-count rc-numeric">
-              {step} / {total}
-            </span>
-            <span className="rc-reg-dots" role="img" aria-label={`Step ${step} of ${total}`}>
+              <div className="rc-reg-mark" role="img" aria-label="RECESS">
+                <RecessWordmarkV2 />
+              </div>
+
+              <span className="rc-reg-count rc-numeric">
+                {step} / {total}
+              </span>
+            </div>
+
+            <div className="rc-reg-progress" role="img" aria-label={`Step ${step} of ${total}`}>
               {Array.from({ length: total }, (_, i) => (
                 <span
                   key={i}
-                  className={`rc-reg-dot${i < step ? " rc-reg-dot--on" : ""}`}
+                  className={`rc-reg-progress-seg${i < step ? " rc-reg-progress-seg--on" : ""}`}
                 />
               ))}
-            </span>
-          </div>
-        </div>
-
-        <div className="rc-reg-mark">
-          <RecessWordmark />
-          <BrushGesture className="rc-reg-gesture" />
-          <span className="sr-only">RECESS</span>
-        </div>
+            </div>
+          </>
+        )}
 
         {children}
       </div>

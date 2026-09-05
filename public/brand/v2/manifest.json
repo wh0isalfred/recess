@@ -1,0 +1,68 @@
+{
+  "01-name-illustration": {
+    "crop_box_from_source": [
+      63,
+      468,
+      485,
+      800
+    ],
+    "size_px": [
+      422,
+      332
+    ],
+    "estimated_screen_background_rgb": [
+      253,
+      248,
+      243
+    ],
+    "files": {
+      "transparent_png": "01-name-illustration.png",
+      "lossless_webp": "01-name-illustration.webp",
+      "reference_crop_png": "01-name-illustration-reference.png"
+    }
+  },
+  "02-alias-illustration": {
+    "crop_box_from_source": [
+      557,
+      519,
+      980,
+      799
+    ],
+    "size_px": [
+      423,
+      280
+    ],
+    "estimated_screen_background_rgb": [
+      252,
+      248,
+      242
+    ],
+    "files": {
+      "transparent_png": "02-alias-illustration.png",
+      "lossless_webp": "02-alias-illustration.webp",
+      "reference_crop_png": "02-alias-illustration-reference.png"
+    }
+  },
+  "03-whatsapp-illustration": {
+    "crop_box_from_source": [
+      1052,
+      541,
+      1474,
+      799
+    ],
+    "size_px": [
+      422,
+      258
+    ],
+    "estimated_screen_background_rgb": [
+      252,
+      248,
+      242
+    ],
+    "files": {
+      "transparent_png": "03-whatsapp-illustration.png",
+      "lossless_webp": "03-whatsapp-illustration.webp",
+      "reference_crop_png": "03-whatsapp-illustration-reference.png"
+    }
+  }
+}

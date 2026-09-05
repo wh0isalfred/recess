@@ -96,7 +96,7 @@ export function CheckInScreen({ state }: { state: PlayerState }) {
       </p>
 
       <div className="rc-chk-die">
-        <Image src="/brand/die-pink.webp" alt="" aria-hidden="true" width={640} height={640} priority />
+        <Image src="/brand/old/die-pink.webp" alt="" aria-hidden="true" width={640} height={640} priority />
       </div>
 
       {error ? (

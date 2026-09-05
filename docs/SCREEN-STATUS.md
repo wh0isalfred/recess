@@ -48,10 +48,8 @@ refresh → duplicate-prevention) has actually been run.
 | # | Screen | Visual | Data | Status |
 |---|---|---|---|---|
 | 01/02 | Landing (V2) | Reference supplied | Event | REVIEW |
-| 03 | Registration — Name | Reference supplied | Registration | APPROVED |
-| 04 | Registration — Alias | Reference supplied | Registration | APPROVED |
-| 05 | Registration — WhatsApp | Reference supplied | Registration | REVIEW (local only — hosted registration path not yet exercised; see report) |
-| 06 | You're In | Reference supplied | Registration | REVIEW (local only — hosted registration path not yet exercised; see report) |
+| 03/04/05 | Registration (V2) — Name / Alias / WhatsApp | Reference supplied | Registration | REVIEW |
+| 06 | You're In | Reference supplied | Registration | **Unreachable as of Registration V2** — see delivery report. The V2 WhatsApp step's own in-place "Registration Complete" transition now covers this moment; it no longer calls `markPassFresh()`, so this screen's trigger condition can never fire. Not deleted (Pass is a separate slice) — flagging for a decision alongside Pass's own V2 pass. |
 | 07 | Event Pass | Reference supplied | Event | REVIEW |
 | 08 | Check-in | Reference supplied | Check-in | REVIEW |
 | 09 | Room | Reference supplied | Room | APPROVED |
@@ -103,21 +101,28 @@ Run once every player screen is `VERIFIED`.
 
 | Asset | Path | Screens |
 |---|---|---|
-| RECESS wordmark (V2, vector trace) | `src/components/brand/v2/RecessWordmark.tsx` | 01/02 |
+| RECESS wordmark (V2, vector trace) | `src/components/brand/v2/RecessWordmark.tsx` | 01/02, 03/04/05 |
 | "ALL WORK. NO PLAY..." lettering + brush (V2, vector trace) | `public/brand/v2/all-work-no-play.svg` | 01/02 |
 | Hero pawn + die composition (V2, raster — dimensional shading) | `public/brand/v2/hero-pawn-die.webp` | 01/02 |
-| Pink pawn | `public/brand/pawn-pink.webp` | 03 |
-| Orange knight | `public/brand/knight-orange.webp` | 04 |
-| Pink rook | `public/brand/rook-pink.webp` | 05 |
-| Pink exploding die | `public/brand/die-pink.webp` | 08 |
+| Name illustration — pawn + ticket (V2, raster) | `public/brand/v2/onboarding-name.webp` | 03 |
+| Alias illustration — dimensional die + brush (V2, raster) | `public/brand/v2/onboarding-alias.webp` | 04 |
+| WhatsApp illustration — ticket (V2, raster) | `public/brand/v2/onboarding-whatsapp.webp` | 05 |
+| Pink exploding die | `public/brand/old/die-pink.webp` | 08 |
+
+The V1 pawn/knight/rook assets (`pawn-pink.webp`, `knight-orange.webp`,
+`rook-pink.webp`) and their sole component wrapper (`PawnMark.tsx`) are
+retired with this slice — screens 03-05 now use the V2 illustrations above
+instead. Found in passing: `die-pink.webp`'s path above changed from
+`public/brand/die-pink.webp` because a prior asset reorganization moved it
+to `public/brand/old/` without updating `CheckInScreen.tsx`'s reference,
+leaving that image 404ing in production. Fixed as a one-line path
+correction — not a Screen 08 redesign. See the delivery report.
 
 A real `recess-wordmark` asset was supplied and used for V2 (traced to SVG,
-see above) — but only for screen 01/02. The pre-V2 approximation in
-`src/components/brand/RecessWordmark.tsx` (used by screens 03–09, all
-already `APPROVED`/`REVIEW` under its exact output) is deliberately left
-alone; swapping those screens to the V2 asset is a call for whoever
-approves each of them next, not bundled into this slice. See the delivery
-report.
+see above) — screens 01/02 and, as of this slice, 03/04/05 all use it. The
+pre-V2 approximation in `src/components/brand/RecessWordmark.tsx` remains
+in use by screens 07-09 (all already `APPROVED`/`REVIEW` under its exact
+output); migrating those is a call for whoever approves each of them next.
 
 Also awaiting supply — game artwork. Architecture is built (`games.artwork_url`,
 same-origin-path-constrained, static files, no Storage bucket) and the UI

@@ -1,329 +1,216 @@
 /* ===========================================================================
-   Screen 03 — Registration / Name.
+   Screens 03-05 — Registration V2 (Name / Alias / WhatsApp).
 
-   Measured off the supplied reference, which describes a 390 x 660 viewport.
-   Screen-specific presentation code; colour, motion and texture still come
-   from tokens.css.
+   Replaces the V1 poster-lettering treatment entirely. Registration is
+   quieter than Landing (BRAND.md: acquisition is expressive, product is
+   disciplined) — real UI text for prompts, no pawn/die hero poster, low
+   grain. Shared chrome lives in RegistrationShell; each step's own field,
+   illustration and copy sit below it.
    =========================================================================== */
 
 @layer components {
   .rc-reg {
-    /* Matches this screen's own approved artwork paper stock. V2 Landing
-       (landing.css) now measures a slightly lighter/warmer cream off its
-       own reference and does not share this value — the two intentionally
-       diverge for now rather than shifting this already-approved screen's
-       tone to match an unrelated slice. Worth revisiting once Registration
-       gets its own V2 pass. */
-    --ground: #f6e7d4;
+    --ground: #faf6ec;
     min-height: 100svh;
+    overflow-x: hidden;
   }
 
   .rc-reg-stage {
     position: relative;
-    z-index: 1;
-    /* Lets sizes below be relative to the STAGE — the actual containing
-       block for its absolutely-positioned artwork — rather than the
-       viewport. A vw-based size keeps growing after the stage itself caps
-       out at max-width, eventually overrunning the content beneath it. */
-    container-type: inline-size;
-    display: flex;
-    flex-direction: column;
-    max-width: 34rem;
+    width: 100%;
+    max-width: 26rem;
     min-height: 100svh;
     margin: 0 auto;
-    padding: 1.5rem 1.625rem 3.4rem;
+    padding: 1rem 1.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
   }
 
-  /* ------------------------------------------------------------------ chrome
-     "1 / 3" sits above its dots rather than beside them, so this does not use
-     ProgressIndicator's steps variant, which sets them on one line. */
+  /* ------------------------------------------------------------------ chrome */
 
   .rc-reg-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
   }
 
-  .rc-reg-close {
+  .rc-reg-back-chevron {
+    justify-self: start;
     display: flex;
     align-items: center;
     justify-content: center;
     width: var(--rc-tap-sm);
     height: var(--rc-tap-sm);
-    margin: -0.75rem 0 0 -0.75rem;
+    margin-left: -0.625rem;
     color: var(--fg);
   }
 
-  .rc-reg-close svg {
-    display: block;
-    width: 1rem;
+  .rc-reg-back-chevron svg {
+    width: 0.75rem;
     height: auto;
   }
 
-  .rc-reg-steps {
-    text-align: right;
-  }
-
-  .rc-reg-count {
-    display: block;
-    font-size: var(--text-rc-sm);
-    line-height: 1.2;
-    color: var(--fg-soft);
-  }
-
-  .rc-reg-dots {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    margin-top: 0.875rem;
-  }
-
-  .rc-reg-dot {
-    display: block;
-    width: 0.625rem;
-    height: 0.625rem;
-    border-radius: var(--r-pill);
-    background: var(--fg-muted);
-  }
-
-  .rc-reg-dot--on {
-    background: var(--accent);
-  }
-
-  /* ------------------------------------------------------------------- mark */
-
   .rc-reg-mark {
-    width: 5rem;
-    margin-top: 0.8125rem;
+    justify-self: center;
+    width: 6.5rem;
+    color: var(--fg);
   }
 
   .rc-reg-mark svg {
     display: block;
     width: 100%;
     height: auto;
-    overflow: visible;
-    color: var(--fg);
   }
 
-  .rc-reg-mark .rc-reg-gesture {
-    width: 92%;
-    margin: -0.1875rem 0 0 7%;
-  }
-
-  /* ------------------------------------------------------------------ prompt */
-
-  .rc-reg-heading {
-    /* Width is the reference's measured line length; PosterLine turns that
-       into the right cap height. */
-    width: 67.75%;
-    margin-top: 2.1875rem;
-    color: var(--fg);
-  }
-
-  .rc-reg-heading svg {
-    display: block;
-    width: 100%;
-    height: auto;
-  }
-
-  /* The Field primitive carries the label, the message and the a11y wiring;
-     only its metrics are nudged to the reference's taller control. */
-  .rc-reg-field {
-    margin-top: 2.375rem;
-  }
-
-  .rc-reg-field label {
-    margin-bottom: 1.5rem;
-    font-weight: 400;
-  }
-
-  .rc-reg-field input {
-    min-height: 4.25rem;
-    padding-left: 1.3125rem;
-    padding-right: 1.3125rem;
-  }
-
-  /* --------------------------------------------------------------- foot line */
-
-  .rc-reg-foot {
-    position: relative;
-    display: flex;
-    justify-content: flex-end;
-    margin-top: auto;
-  }
-
-  /* Offsets place the pawn's solid body where the reference puts it — 179px
-     tall, its left edge cropped by the screen edge — rather than aligning the
-     file's bounding box, most of which is spatter. */
-  .rc-reg-pawn {
-    position: absolute;
-    z-index: 0;
-    left: -2.89rem;
-    bottom: -3.08rem;
-    width: 12.4375rem;
-    height: auto;
-    pointer-events: none;
-  }
-
-  .rc-reg-next {
-    position: relative;
-    z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.625rem;
-    min-width: 8.1875rem;
-    min-height: 4.375rem;
-    padding: 0 1.125rem;
-    border: 0;
-    border-radius: var(--r-control);
-    background: var(--accent);
-    color: var(--paper);
-    font-family: var(--font-display-family), system-ui, sans-serif;
-    font-size: var(--text-rc-md);
-    letter-spacing: 0.045em;
-    cursor: pointer;
-    transition:
-      transform var(--t-press) var(--ease-press),
-      background-color var(--t-state) var(--ease-press);
-  }
-
-  .rc-reg-next:hover:not(:disabled) { background: var(--pink-deep); }
-  .rc-reg-next:active:not(:disabled) { transform: translateY(3px); }
-  .rc-reg-next:disabled { background: var(--fg-muted); color: var(--fg-soft); cursor: not-allowed; }
-
-
-  /* ============================================================== SCREEN 04
-     Alias. Same shell, its own composition below the lockup. */
-
-  /* Anchored from the right edge of the stage and sized with clamp(), so it
-     holds its position and proportion continuously from 390px up through
-     desktop — not just at the two widths it happened to be checked at. A
-     fixed `left` offset drifted across the card as the stage grew and
-     landed on the alias field at intermediate widths; anchoring from `right`
-     removes the width dependency instead of patching it at another
-     breakpoint. */
-  .rc-reg-knight {
-    position: absolute;
-    z-index: 0;
-    top: 6.5rem;
-    right: 0.375rem;
-    width: clamp(10rem, 20.8cqw + 4.94rem, 12rem);
-    height: auto;
-    pointer-events: none;
-  }
-
-  .rc-reg-heading--stacked {
-    position: relative;
-    z-index: 1;
-    width: auto;
-    margin-top: 1.4375rem;
-  }
-
-  /* Each line carries its own measured width; PosterLine's ratio turns that
-     into the matching cap height, so the two lines set at one size. */
-  .rc-reg-heading--stacked .rc-reg-heading-a { display: block; width: 44.1%; }
-  .rc-reg-heading--stacked .rc-reg-heading-b {
-    display: block;
-    width: 37.6%;
-    margin-top: 0.4375rem;
-  }
-
-  .rc-reg-copy {
-    position: relative;
-    z-index: 1;
-    margin-top: 1.25rem;
+  .rc-reg-count {
+    justify-self: end;
     font-size: var(--text-rc-sm);
-    line-height: 1.9;
+    color: var(--fg-soft);
   }
 
-  /* The copy above the field is the description, so Screen 04's field label
-     is carried for assistive tech only. */
-  .rc-reg-field--bare { margin-top: 1.5rem; }
-  .rc-reg-field--bare label {
+  .rc-reg-progress {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .rc-reg-progress-seg {
+    flex: 1;
+    height: 0.25rem;
+    border-radius: var(--r-pill);
+    background: var(--fg-muted);
+  }
+
+  .rc-reg-progress-seg--on {
+    background: var(--accent);
+  }
+
+  /* ----------------------------------------------------------------- prompt */
+
+  .rc-reg-prompt {
+    margin-top: 1.75rem;
+    font-family: var(--font-ui-family), system-ui, sans-serif;
+    font-weight: 700;
+    font-size: var(--text-rc-lg);
+    line-height: 1.15;
+    color: var(--fg);
+  }
+
+  .rc-reg-subcopy {
+    margin-top: 0.375rem;
+    font-size: var(--text-rc-sm);
+    color: var(--fg-soft);
+  }
+
+  .rc-reg-field {
+    margin-top: 1.25rem;
+  }
+
+  .rc-reg-preview {
+    margin-top: 0.75rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--fg-soft);
+  }
+
+  .rc-reg-preview .rc-numeric {
+    color: var(--accent-text);
+  }
+
+  .rc-reg-assurance {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-size: var(--text-rc-sm);
+    color: var(--fg-soft);
+  }
+
+  /* ------------------------------------------------------------ illustration */
+
+  .rc-reg-illustration {
+    display: flex;
+    justify-content: center;
+    margin: auto -1.5rem 0;
+  }
+
+  .rc-reg-illustration-art {
+    display: block;
+    width: 78%;
+    max-width: 21rem;
+    height: auto;
+  }
+
+  /* ---------------------------------------------------------------- consent */
+
+  .rc-reg-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    margin-top: 0.875rem;
+    font-size: var(--text-rc-xs);
+    line-height: 1.4;
+    color: var(--fg-soft);
+    cursor: pointer;
+  }
+
+  .rc-reg-consent input {
     position: absolute;
     width: 1px;
     height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
+    opacity: 0;
   }
-  .rc-reg-field--bare input { min-height: 4.0625rem; }
 
-  .rc-reg-preview {
-    margin-top: 1.3125rem;
-    padding: 1.375rem 1.3125rem 1.5rem;
+  .rc-reg-consent-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: 0.0625rem;
     border: var(--hairline) solid var(--fg-line);
-    border-radius: var(--r-control);
+    border-radius: 0.25rem;
+    color: var(--paper);
+    transition: background-color var(--t-state) var(--ease-press), border-color var(--t-state) var(--ease-press);
   }
 
-  .rc-reg-preview-label {
-    font-size: var(--text-rc-xs);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--fg);
-  }
-
-  .rc-reg-preview-alias {
-    margin-top: 0.5rem;
-    font-family: var(--font-display-family), system-ui, sans-serif;
-    font-size: var(--text-rc-lg);
-    line-height: 1;
-    letter-spacing: 0.01em;
-    color: var(--accent);
-    overflow-wrap: anywhere;
-  }
-
-  .rc-reg-foot--split {
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .rc-reg-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.625rem;
-    min-height: var(--rc-tap-sm);
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--fg);
-    font-family: var(--font-display-family), system-ui, sans-serif;
-    font-size: var(--text-rc-base);
-    letter-spacing: 0.05em;
-    cursor: pointer;
-  }
-
-  .rc-reg-back:hover { color: var(--accent-text); }
-
-  /* ============================================================= SCREEN 05
-     WhatsApp. Reuses the shell (top chrome, lockup, heading, --reg-next,
-     --reg-back, --reg-foot--split) exactly as Screens 03-04 do; only the
-     phone control, consent row and rook artwork are new. */
-
-  .rc-reg-rook {
-    position: absolute;
-    z-index: 0;
-    top: 15.5rem;
-    right: -1.25rem;
-    width: clamp(12rem, 34cqw, 16.5rem);
+  .rc-reg-consent-box svg {
+    width: 0.5625rem;
     height: auto;
-    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--t-state) var(--ease-press);
   }
 
-  /* CLAIM MY SPOT stays clickable once the phone field is non-empty and
-     consent is checked; validate.ts's shape check runs again on the tap
-     itself (claim(), in WhatsAppStep) rather than gating the button, so an
-     incomplete number never leaves the button dead with no way to discover
-     why — the click itself surfaces the error. The on-blur error below is
-     immediate helpful feedback for the common case, not the only path to it. */
-  .rc-reg-field--phone { margin-top: 2rem; }
+  .rc-reg-consent input:checked + .rc-reg-consent-box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
 
-  /* The two-part control: a native <select> standing in for the dial code,
-     laid over Field's existing `prefix` slot so the bordered box, the
-     focus ring and the error state all come from Field for free. */
+  .rc-reg-consent input:checked + .rc-reg-consent-box svg { opacity: 1; }
+
+  .rc-reg-consent input:focus-visible + .rc-reg-consent-box {
+    outline: 3px solid var(--amber);
+    outline-offset: 2px;
+  }
+
+  .rc-reg-form-error {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    font-size: var(--text-rc-sm);
+    color: var(--alert);
+  }
+
+  /* -------------------------------------------------------------- foot/CTA */
+
+  .rc-reg-foot {
+    margin-top: 1.25rem;
+  }
+
+  /* --------------------------------------------------------- country prefix */
+
   .rc-reg-country {
     position: relative;
     display: flex;
@@ -347,76 +234,73 @@
     color: var(--fg-soft);
   }
 
-  .rc-reg-copy--tight { margin-top: 1.125rem; }
+  /* ------------------------------------------------------- registration complete */
 
-  .rc-reg-consent {
+  .rc-reg-complete {
+    flex: 1;
     display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    margin-top: 1.25rem;
-    font-size: var(--text-rc-sm);
-    line-height: 1.4;
-    cursor: pointer;
-  }
-
-  .rc-reg-consent input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-  }
-
-  .rc-reg-consent-box {
-    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex: none;
-    width: 1.375rem;
-    height: 1.375rem;
-    margin-top: 0.0625rem;
-    border: var(--hairline) solid var(--fg-line);
-    border-radius: 0.3125rem;
-    color: var(--paper);
-    transition: background-color var(--t-state) var(--ease-press), border-color var(--t-state) var(--ease-press);
+    gap: 1.5rem;
+    text-align: center;
   }
 
-  .rc-reg-consent-box svg {
-    width: 0.6875rem;
-    height: auto;
-    opacity: 0;
-    transition: opacity var(--t-state) var(--ease-press);
+  .rc-reg-complete-mark {
+    width: 5rem;
+    height: 5rem;
+    color: var(--accent);
+    animation: rc-reg-mark-in 420ms var(--ease-press) both;
   }
 
-  .rc-reg-consent input:checked + .rc-reg-consent-box {
-    background: var(--accent);
-    border-color: var(--accent);
+  .rc-reg-complete-ring {
+    opacity: 0.25;
   }
 
-  .rc-reg-consent input:checked + .rc-reg-consent-box svg { opacity: 1; }
-
-  .rc-reg-consent input:focus-visible + .rc-reg-consent-box {
-    outline: 3px solid var(--amber);
-    outline-offset: 2px;
+  .rc-reg-complete-check {
+    stroke-dasharray: 40;
+    stroke-dashoffset: 40;
+    animation: rc-reg-check-draw 360ms var(--ease-press) 260ms both;
   }
 
-  .rc-reg-form-error {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
-    font-size: var(--text-rc-sm);
-    color: var(--alert);
+  .rc-reg-complete-text {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-xl);
+    line-height: 1.05;
+    color: var(--fg);
+    animation: rc-reg-text-in 320ms var(--ease-press) 180ms both;
+  }
+
+  @keyframes rc-reg-mark-in {
+    from { transform: scale(0.6); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes rc-reg-check-draw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes rc-reg-text-in {
+    from { transform: translateY(0.5rem); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rc-reg-complete-mark,
+    .rc-reg-complete-check,
+    .rc-reg-complete-text {
+      animation: none;
+      opacity: 1;
+      stroke-dashoffset: 0;
+      transform: none;
+    }
   }
 
   /* ================================================================= DESKTOP */
 
   @media (min-width: 52rem) {
-    .rc-reg-stage { padding: 2.25rem 2rem 4rem; }
-    .rc-reg-mark { width: 6.5rem; }
-    .rc-reg-heading { width: 62%; }
-    .rc-reg-pawn { width: 14rem; left: -3.25rem; bottom: -3.5rem; }
-    .rc-reg-copy { font-size: var(--text-rc-base); }
-    .rc-reg-preview-alias { font-size: var(--text-rc-xl); }
-    .rc-reg-rook { width: 15rem; right: -1rem; }
-    .rc-reg-consent { font-size: var(--text-rc-base); }
+    .rc-reg-stage { padding: 1.5rem 1.75rem 2rem; max-width: 28rem; }
+    .rc-reg-mark { width: 7.25rem; }
+    .rc-reg-prompt { font-size: var(--text-rc-xl); }
   }
 }
