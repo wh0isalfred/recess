@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  assignCoordinator,
   assignWaitingPlayers,
+  createRoom,
+  fetchCoordinatorCandidates,
   fetchRoomMembers,
+  replaceCoordinator,
   upsertRoom,
 } from "@/features/admin/actions";
-import type { AdminRoom, RoomMember, RoomsOverview } from "@/features/admin/types";
+import type { AdminRoom, CoordinatorCandidate, RoomMember, RoomsOverview } from "@/features/admin/types";
 import { PlayerAvatar } from "@/components/brand/PlayerAvatar";
 
 type DrawerState = { mode: "create" } | { mode: "edit"; room: AdminRoom } | null;
@@ -32,9 +34,24 @@ function RoomDrawer({ slug: drawerSlug, state, onClose, onSaved }: { slug: strin
   const [label, setLabel] = useState(editing?.label ?? "");
   const [capacity, setCapacity] = useState(editing?.capacity?.toString() ?? "");
   const [whatsapp, setWhatsapp] = useState(editing?.whatsappGroupUrl ?? "");
-  const [coordinatorId, setCoordinatorId] = useState(editing?.coordinator?.userId ?? "");
+  const [coordinatorId, setCoordinatorId] = useState(editing?.coordinator?.registrationId ?? "");
+  const [candidates, setCandidates] = useState<CoordinatorCandidate[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!state) return;
+    let cancelled = false;
+    fetchCoordinatorCandidates(drawerSlug).then((r) => {
+      if (cancelled) return;
+      if (r.ok) setCandidates(r.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Re-fetch each time the drawer opens — a candidate eligible a minute
+    // ago may have checked in or been assigned elsewhere since.
+  }, [drawerSlug, state]);
 
   if (!state) return null;
 
@@ -44,26 +61,41 @@ function RoomDrawer({ slug: drawerSlug, state, onClose, onSaved }: { slug: strin
     setSubmitting(true);
     setError(null);
     try {
-      const result = await upsertRoom(drawerSlug, {
-        roomId: editing?.id ?? null,
-        label,
-        capacity: capacity.trim() === "" ? null : Number(capacity),
-        whatsappGroupUrl: whatsapp.trim() === "" ? null : whatsapp.trim(),
-      });
-      if (!result.ok) {
-        setSubmitting(false);
-        setError(result.message);
-        return;
-      }
       if (editing) {
-        const coordResult = await assignCoordinator(
-          drawerSlug,
-          editing.id,
-          coordinatorId.trim() === "" ? null : coordinatorId.trim(),
-        );
-        if (!coordResult.ok) {
+        const result = await upsertRoom(drawerSlug, {
+          roomId: editing.id,
+          label,
+          capacity: capacity.trim() === "" ? null : Number(capacity),
+          whatsappGroupUrl: whatsapp.trim() === "" ? null : whatsapp.trim(),
+        });
+        if (!result.ok) {
           setSubmitting(false);
-          setError(coordResult.message);
+          setError(result.message);
+          return;
+        }
+        if (coordinatorId && coordinatorId !== editing.coordinator?.registrationId) {
+          const coordResult = await replaceCoordinator(drawerSlug, editing.id, coordinatorId);
+          if (!coordResult.ok) {
+            setSubmitting(false);
+            setError(coordResult.message);
+            return;
+          }
+        }
+      } else {
+        if (!coordinatorId) {
+          setSubmitting(false);
+          setError("Choose a coordinator to create this room.");
+          return;
+        }
+        const result = await createRoom(drawerSlug, {
+          label,
+          capacity: capacity.trim() === "" ? 0 : Number(capacity),
+          coordinatorRegistrationId: coordinatorId,
+          whatsappGroupUrl: whatsapp.trim() === "" ? null : whatsapp.trim(),
+        });
+        if (!result.ok) {
+          setSubmitting(false);
+          setError(result.message);
           return;
         }
       }
@@ -92,9 +124,11 @@ function RoomDrawer({ slug: drawerSlug, state, onClose, onSaved }: { slug: strin
             <input
               type="number"
               min={1}
+              max={15}
               value={capacity}
               onChange={(e) => setCapacity(e.target.value)}
-              placeholder="Not set — room won't receive check-in assignments"
+              placeholder={editing ? "Not set — room won't receive check-in assignments" : "1-15"}
+              required={!editing}
             />
           </label>
           <label className="rc-admin-field">
@@ -105,16 +139,27 @@ function RoomDrawer({ slug: drawerSlug, state, onClose, onSaved }: { slug: strin
               placeholder="https://chat.whatsapp.com/..."
             />
           </label>
-          {editing ? (
-            <label className="rc-admin-field">
-              <span>Coordinator (staff user ID)</span>
-              <input
-                value={coordinatorId}
-                onChange={(e) => setCoordinatorId(e.target.value)}
-                placeholder="Leave blank to remove"
-              />
-            </label>
-          ) : null}
+          <label className="rc-admin-field">
+            <span>{editing ? "Replace coordinator" : "Coordinator"}</span>
+            <select value={coordinatorId} onChange={(e) => setCoordinatorId(e.target.value)} required={!editing}>
+              <option value="">
+                {editing ? "Keep current coordinator" : candidates === null ? "Loading eligible players…" : "Choose a player"}
+              </option>
+              {editing?.coordinator ? (
+                <option value={editing.coordinator.registrationId} disabled>
+                  Currently: {editing.coordinator.alias} (#{String(editing.coordinator.playerNumber).padStart(3, "0")})
+                </option>
+              ) : null}
+              {candidates?.map((c) => (
+                <option key={c.registrationId} value={c.registrationId}>
+                  {c.alias} (#{String(c.playerNumber).padStart(3, "0")})
+                </option>
+              ))}
+            </select>
+            <span className="rc-admin-field-hint">
+              Registered, not checked in, and not already coordinating another room.
+            </span>
+          </label>
           {error ? <p className="rc-admin-error rc-admin-error--inline">{error}</p> : null}
           <button type="submit" className="rc-admin-drawer-save" disabled={submitting}>
             {submitting ? "SAVING…" : "SAVE ROOM"}
@@ -242,7 +287,9 @@ export function RoomsClient({ slug, initial }: { slug: string; initial: RoomsOve
               <div className="rc-admin-room-card-meta">
                 {whatsappBadge(room)}
                 <span className="rc-admin-room-coordinator">
-                  {room.coordinator ? `Coordinator: ${room.coordinator.name}` : ""}
+                  {room.coordinator
+                    ? `Coordinator: ${room.coordinator.alias} (#${String(room.coordinator.playerNumber).padStart(3, "0")})${room.coordinator.checkedInAt ? "" : " — not checked in"}`
+                    : ""}
                 </span>
               </div>
               <div className="rc-admin-room-card-actions">

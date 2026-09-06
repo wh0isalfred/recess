@@ -16,7 +16,7 @@ select is(
   (select count(*)::int from pg_type t
     join pg_namespace n on n.oid = t.typnamespace
    where n.nspname = 'public' and t.typtype = 'e'),
-  11, 'test 2: all 11 enums exist');
+  12, 'test 2: all 12 enums exist (11 original + room_game_status, Phase 6.5)');
 
 select is(
   (select array_agg(e.enumlabel::text order by e.enumsortorder)

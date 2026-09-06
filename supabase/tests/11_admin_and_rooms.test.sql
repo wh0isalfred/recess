@@ -140,14 +140,19 @@ select is(
 -- --------------------------------------------------------------------- room CRUD
 
 select throws_like(
-  $$ select public.admin_upsert_room('test-admin18', null, '', 10, null) $$,
+  $$ select public.admin_upsert_room('test-admin18', (select id from rooms where event_id=(select id from ev) and label='ROOM 01'), '', 10, null) $$,
   'invalid_label:%', 'test 40: an empty label is refused');
 select throws_like(
-  $$ select public.admin_upsert_room('test-admin18', null, 'Bad WA', 10, 'https://evil.example.com/x') $$,
+  $$ select public.admin_upsert_room('test-admin18', (select id from rooms where event_id=(select id from ev) and label='ROOM 01'), 'Bad WA', 10, 'https://evil.example.com/x') $$,
   'invalid_whatsapp_url:%', 'test 40: a non-WhatsApp url is refused');
 
+-- Room creation is Phase 6.5's admin_create_room (atomic, requires a real
+-- eligible coordinator) — admin_upsert_room no longer creates, see 0021.
+select pg_temp.register('ROOM03COORD', '+2348040000099');
+update public.event_registrations set auth_user_id = gen_random_uuid() where alias = 'ROOM03COORD';
 select lives_ok(
-  $$ select public.admin_upsert_room('test-admin18', null, 'ROOM 03', 5, null) $$,
+  $$ select public.admin_create_room('test-admin18', 'ROOM 03', 5,
+       (select id from event_registrations where alias = 'ROOM03COORD')) $$,
   'test 40: creating a new room succeeds');
 select is(
   (select position from rooms where event_id=(select id from ev) and label='ROOM 03'), 3,

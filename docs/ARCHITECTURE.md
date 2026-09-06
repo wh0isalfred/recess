@@ -130,7 +130,7 @@ The copy-on-add rule in §17 is the important part. An organizer tweaking Among 
 ```sql
 rooms (
   id, event_id, label,        -- 'ROOM 01'
-  position int, capacity int,
+  position int, capacity int, -- capacity: 1-15 inclusive (Phase 6.5), includes the coordinator's seat
   unique (event_id, label)
 )
 
@@ -147,11 +147,39 @@ coordinator_assignments (
   room_id  null,              -- null = event-wide coordinator
   unique (event_id, user_id, room_id)
 )
+
+-- Phase 6.5: the REAL room coordinator is a registrant, not a staff account.
+-- coordinator_assignments (above) still exists, unchanged, for a distinct
+-- event-wide STAFF concept this phase does not touch or replace.
+room_coordinators (
+  id, event_id, room_id, registration_id,
+  assigned_at, replaced_at null,   -- history preserved; replacement never deletes
+  unique (room_id) where replaced_at is null,               -- one active coordinator per room
+  unique (event_id, registration_id) where replaced_at is null  -- can't coordinate two rooms at once
+)
 ```
 
 Rooms are **containers defined before the event** (Alfred plans two rooms in the Overview screen, §40) but **memberships are created at check-in** (§11). That resolves what reads like a contradiction in the bible: the room exists, it's just empty until people show up.
 
 Room assignment is incremental, not a one-shot shuffle. Late arrivals (§12) get assigned into whichever room has headroom under the *current* game's `room_capacity`; if none does, they hold until the next game.
+
+**Coordinator seat reservation (Phase 6.5).** The Admin picks a room's coordinator from a real registrant — someone registered for the event, not waitlisted or cancelled, not yet checked in, and not already coordinating another room — at the moment the room is created (`admin_create_room()`, atomic: a room can never exist without a coordinator). Because that coordinator hasn't checked in yet, one seat of the room's capacity is reserved for them: `check_in_player()`'s sequential-fill loop computes, per room, whether an active `room_coordinators` row exists whose registration has no active membership in that room yet, and if so treats that room's *effective* ordinary capacity as `capacity - 1` for that check-in. The reservation is derived, not a stored flag — the moment the coordinator's own membership row exists, the same computation naturally stops reserving it. When the coordinator themselves checks in, `check_in_player()` detects the active assignment before ever entering the sequential-fill loop and assigns them directly to their own room, consuming the reserved seat — they never compete for, or wait behind, ordinary players.
+
+**Per-room game progression (Phase 6.5).**
+
+```sql
+room_event_games (
+  id, event_id, room_id, event_game_id,
+  status        room_game_status,   -- PENDING | LIVE | COMPLETE
+  started_at, ended_at,
+  unique (room_id, event_game_id),
+  unique (room_id) where status = 'LIVE'   -- one live game per room, enforced
+)
+```
+
+All rooms follow the same configured `event_games` order, but rooms progress through it independently — Room 01 may be on Skribbl while Room 03 is still finishing Among Us (EVENT-OPS.md §4/§13). `event_games.status` describes the event's *configured* game; `room_event_games` describes one room's *actual progress* through it — the two are deliberately separate rather than overloading one status column with two meanings. Rows are created lazily by `start_room_game()`, not pre-seeded for every room×game combination. `start_room_game()` enforces both invariants a direct write could otherwise violate only by convention: no two games LIVE at once in the same room (the partial unique index above), and normal progression cannot skip the configured order (the immediately preceding configured game, if one exists, must already be `COMPLETE` for that room). Authorization (`is_authorized_for_room()`) admits either an event admin or that specific room's currently active coordinator — never a bare client-supplied room id.
+
+**Game duration (Phase 6.5).** `event_games.duration_minutes` (nullable until Admin configures it, same treatment as `rooms.capacity`) and `games.default_duration_minutes` (a safe, optional library default, copied in at attach time exactly the way `default_round_count` already copies into `planned_rounds`). Minutes, not seconds — every duration this schema or EVENT-OPS.md discusses is phrased in whole minutes, and nothing about a game window needs sub-minute precision. This is configuration the coordinator's timer will read from later; `start_room_game()` records *when* a room's game started, but does not itself enforce the duration — EVENT-OPS.md §5 is explicit that expiry does not automatically end an active round.
 
 ### 1.6 Rounds and participation
 

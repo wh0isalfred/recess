@@ -183,6 +183,44 @@ check in.
 
 ---
 
+## Phase 6.5 — Night Engine Alignment
+
+**Complete.** Aligns the room/coordinator/game-progression data model with the
+approved real-world night (`docs/EVENT-OPS.md`, `docs/SCORING.md`) ahead of
+Scoring Engine V1. Not a new product phase in the original numbered sequence —
+inserted, same as the Event Builder and Player Shell V2 were pulled forward
+earlier, because Scoring Engine V1 cannot be built correctly against the old
+staff-based coordinator model or an unbounded room capacity.
+
+**Five pieces.** Registrant-based room coordinators (a real event player
+chosen by Admin, not a staff account) with reserved seat check-in; a hard
+1–15 room capacity ceiling; independent per-room game progression
+(`room_event_games`, `start_room_game()`/`complete_room_game()`); and
+Admin-configurable event-game duration (`event_games.duration_minutes`).
+
+**Explicitly not this phase.** `preview_result()`/`submit_result()`,
+championship point calculation, room leaderboards, Coordinator V1 UI, Admin
+Live Control — all Phase 7 and later.
+
+**A real consequence surfaced during this phase:** the Event Builder
+(Phase 6's own wizard) used to create rooms inline during event creation.
+That is no longer possible — a brand-new event has no registrants yet, and
+room creation now requires a real, eligible, already-registered coordinator
+candidate. Room configuration is now exclusively a Rooms-page operation,
+performed once real registrations exist to choose a coordinator from. The
+Event Builder still creates the event and configures its games; it no longer
+attempts to configure rooms.
+
+**Acceptance.** See the delivery report for this phase: capacity enforced at
+1–15, coordinator seat correctly reserved and consumed, strict sequential
+fill unbroken, waiting players fill new capacity in check-in order, rooms
+progress through configured games independently without skipping order, full
+pgTAP suite passes.
+
+**STOP.**
+
+---
+
 ## Phase 7 — Scoring Engine
 
 The hardest backend piece, built in isolation, with no leaderboard UI

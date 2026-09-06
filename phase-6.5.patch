@@ -1,0 +1,3244 @@
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+index d27accf..5f09436 100644
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -130,7 +130,7 @@ The copy-on-add rule in §17 is the important part. An organizer tweaking Among
+ ```sql
+ rooms (
+   id, event_id, label,        -- 'ROOM 01'
+-  position int, capacity int,
++  position int, capacity int, -- capacity: 1-15 inclusive (Phase 6.5), includes the coordinator's seat
+   unique (event_id, label)
+ )
+ 
+@@ -147,12 +147,40 @@ coordinator_assignments (
+   room_id  null,              -- null = event-wide coordinator
+   unique (event_id, user_id, room_id)
+ )
++
++-- Phase 6.5: the REAL room coordinator is a registrant, not a staff account.
++-- coordinator_assignments (above) still exists, unchanged, for a distinct
++-- event-wide STAFF concept this phase does not touch or replace.
++room_coordinators (
++  id, event_id, room_id, registration_id,
++  assigned_at, replaced_at null,   -- history preserved; replacement never deletes
++  unique (room_id) where replaced_at is null,               -- one active coordinator per room
++  unique (event_id, registration_id) where replaced_at is null  -- can't coordinate two rooms at once
++)
+ ```
+ 
+ Rooms are **containers defined before the event** (Alfred plans two rooms in the Overview screen, §40) but **memberships are created at check-in** (§11). That resolves what reads like a contradiction in the bible: the room exists, it's just empty until people show up.
+ 
+ Room assignment is incremental, not a one-shot shuffle. Late arrivals (§12) get assigned into whichever room has headroom under the *current* game's `room_capacity`; if none does, they hold until the next game.
+ 
++**Coordinator seat reservation (Phase 6.5).** The Admin picks a room's coordinator from a real registrant — someone registered for the event, not waitlisted or cancelled, not yet checked in, and not already coordinating another room — at the moment the room is created (`admin_create_room()`, atomic: a room can never exist without a coordinator). Because that coordinator hasn't checked in yet, one seat of the room's capacity is reserved for them: `check_in_player()`'s sequential-fill loop computes, per room, whether an active `room_coordinators` row exists whose registration has no active membership in that room yet, and if so treats that room's *effective* ordinary capacity as `capacity - 1` for that check-in. The reservation is derived, not a stored flag — the moment the coordinator's own membership row exists, the same computation naturally stops reserving it. When the coordinator themselves checks in, `check_in_player()` detects the active assignment before ever entering the sequential-fill loop and assigns them directly to their own room, consuming the reserved seat — they never compete for, or wait behind, ordinary players.
++
++**Per-room game progression (Phase 6.5).**
++
++```sql
++room_event_games (
++  id, event_id, room_id, event_game_id,
++  status        room_game_status,   -- PENDING | LIVE | COMPLETE
++  started_at, ended_at,
++  unique (room_id, event_game_id),
++  unique (room_id) where status = 'LIVE'   -- one live game per room, enforced
++)
++```
++
++All rooms follow the same configured `event_games` order, but rooms progress through it independently — Room 01 may be on Skribbl while Room 03 is still finishing Among Us (EVENT-OPS.md §4/§13). `event_games.status` describes the event's *configured* game; `room_event_games` describes one room's *actual progress* through it — the two are deliberately separate rather than overloading one status column with two meanings. Rows are created lazily by `start_room_game()`, not pre-seeded for every room×game combination. `start_room_game()` enforces both invariants a direct write could otherwise violate only by convention: no two games LIVE at once in the same room (the partial unique index above), and normal progression cannot skip the configured order (the immediately preceding configured game, if one exists, must already be `COMPLETE` for that room). Authorization (`is_authorized_for_room()`) admits either an event admin or that specific room's currently active coordinator — never a bare client-supplied room id.
++
++**Game duration (Phase 6.5).** `event_games.duration_minutes` (nullable until Admin configures it, same treatment as `rooms.capacity`) and `games.default_duration_minutes` (a safe, optional library default, copied in at attach time exactly the way `default_round_count` already copies into `planned_rounds`). Minutes, not seconds — every duration this schema or EVENT-OPS.md discusses is phrased in whole minutes, and nothing about a game window needs sub-minute precision. This is configuration the coordinator's timer will read from later; `start_room_game()` records *when* a room's game started, but does not itself enforce the duration — EVENT-OPS.md §5 is explicit that expiry does not automatically end an active round.
++
+ ### 1.6 Rounds and participation
+ 
+ ```sql
+diff --git a/docs/EVENT-OPS.md b/docs/EVENT-OPS.md
+index c929d7d..e1ba100 100644
+--- a/docs/EVENT-OPS.md
++++ b/docs/EVENT-OPS.md
+@@ -1,80 +1,522 @@
+ # RECESS — Event Operations
+ 
+-How a RECESS night is actually run. This is a human document; the software
+-exists to serve it.
+-
+-## Before the night
+-
+-1. Create the edition and open registration.
+-2. Create the temporary WhatsApp group and put its link on the event.
+-3. Confirm each game's room capacity. Among Us caps at 15 per lobby, so the
+-   number of rooms follows from how many people check in, not from how many
+-   registered.
+-4. Assign a coordinator to every room. A room without a coordinator cannot
+-   submit results.
+-5. Announce the scoring in the group. People accept a scoring system they
+-   heard about beforehand and argue with one they discover at 9pm.
+-
+-## On the night
+-
+-```
+-CHECK_IN opens (7:30) -> rooms fill from people who actually showed up
+-LIVE                  -> game 1, all rooms
+-                      -> results in from every room
+-                      -> game 2 ...
+-COMPLETE              -> standings published
+-```
+-
+-### Locked fairness rules
+-
+-- **Every room completes the same number of scored rounds** for a room-based
+-  game. A faster Among Us lobby must not farm extra points. Live Control
+-  warns when room round counts diverge; do not advance until they match.
+-- **Ties share the position.** Two players tied for 2nd both take 2nd place
+-  points, 3rd is skipped, the next player is 4th. If a position carries a
+-  material prize, tied players split it equally. There is no secret
+-  tiebreaker.
+-- **DNP is not a loss.** It is zero points for that round and nothing else.
+-  Points already earned are never removed because someone left early,
+-  disconnected, or skipped a game.
+-
+-### Among Us — RECESS #1
+-
+-- Impostors per round: configurable 1–3, default 3.
+-- Crewmate win: +2. Impostor win: +4. Loss: 0. DNP: 0.
+-- The captain ticks who is playing, ticks the impostors, taps who won. That
+-  is the entire job. The captain never does arithmetic.
+-
+-Revisit the numbers after the dress rehearsal if Among Us starts dominating
+-the leaderboard.
+-
+-## When something breaks
+-
+-| Situation | What happens |
+-|---|---|
+-| Game crashes mid-round | Void the round. No points. Restart it. Confirmed rounds are untouched. |
+-| Wrong result submitted | Admin edits the source result. RECESS recalculates. Never edit a total. |
+-| Player disconnects | DNP for that round. Earlier points stand. |
+-| Player arrives late | They join the next available round. Missed games are DNP. |
+-| Rooms are full | They wait. Never break an active room to fit someone in. |
+-| Something technical | PAUSE the event. It is a real state. |
+-
+-## Emergency mode
+-
+-**If RECESS the software dies, RECESS the night continues.**
+-
+-Captains record results in the WhatsApp group — who played, who won, what
+-placement. Alfred backfills afterwards as MANUAL point transactions.
+-
+-Tell the coordinators this before the night starts, so nobody freezes waiting
+-for the app to come back. This is not a coding failure. It is event
+-operations.
+-
+-## After
+-
+-- Publish standings and awards.
+-- Keep the WhatsApp group a few days for screenshots and banter, then delete
+-  it. The temporary group is what makes RECESS an event people enter rather
+-  than another permanent noisy chat.
+-- Write down what confused players, what coordinators hated, what Alfred did
+-  by hand, what broke, and what nobody used. That list is the next version.
++This document defines how a RECESS night is actually run.
++
++The software exists to support the night. It should remove arithmetic,
++coordination confusion and state-tracking from the humans running it.
++
++The operating principle is:
++
++> Admins and coordinators record facts. RECESS calculates consequences.
++
++---
++
++## 1. Roles
++
++### Admin
++
++The Admin controls the event as a whole.
++
++The Admin can:
++
++- create and configure the event;
++- configure the ordered games;
++- configure game duration and planned rounds;
++- see registrations and check-ins;
++- select coordinators;
++- create rooms;
++- set room capacity;
++- monitor every room during the live event;
++- approve or reject correction requests;
++- directly correct results when necessary;
++- pause the event;
++- intervene in room progression;
++- handle emergency/manual adjustments.
++
++The Admin should not need to manually calculate scores.
++
++---
++
++### Coordinator
++
++Each room must have exactly one active coordinator.
++
++A coordinator is selected by the Admin from people registered for the event
++who have not yet checked in.
++
++The coordinator is still a RECESS player and may participate in games.
++
++Their job is intentionally small:
++
++> Get the room ready, start play, keep the room moving and submit what happened.
++
++The coordinator does not calculate RECESS points.
++
++Coordinator permissions are limited to the event and room they are assigned to.
++
++---
++
++### Player
++
++A player:
++
++- registers;
++- checks in;
++- is assigned to a room;
++- follows their room's current state;
++- plays the configured games;
++- earns RECESS points from their results;
++- may qualify for the championship stage.
++
++---
++
++## 2. Rooms
++
++Rooms are created manually by the Admin.
++
++RECESS does not automatically decide how many rooms an event needs.
++
++A room may be created after registration has already opened and may also be
++created during check-in when additional capacity is needed.
++
++For RECESS V1, adding a completely new room after the event is already LIVE
++should be treated as an Admin recovery action rather than normal flow.
++
++### Room requirements
++
++A room:
++
++- must have an Admin-defined position: Room 01, Room 02, Room 03, etc.;
++- must have a capacity between 1 and 15 inclusive;
++- cannot be created as an operational room without a coordinator;
++- has one coordinator;
++- has its own active membership list;
++- progresses through the event's games independently of other rooms.
++
++The room capacity includes the coordinator.
++
++### Coordinator seat reservation
++
++Because the coordinator is chosen before they check in, one seat in their room
++must be reserved for them.
++
++Example:
++
++Room 02 capacity = 15.
++
++The assigned coordinator has not checked in yet.
++
++The room may therefore contain at most 14 ordinary checked-in players.
++
++When the coordinator checks in, they are assigned directly to Room 02 and take
++the reserved fifteenth seat.
++
++The sequential assignment algorithm must never give the coordinator's reserved
++seat to another player.
++
++---
++
++## 3. Check-in and room assignment
++
++Room assignment is strict and sequential.
++
++It is NOT random.
++
++Players fill rooms by ascending room position:
++
++Room 01 must fill before ordinary players begin entering Room 02.
++
++Room 02 must fill before ordinary players begin entering Room 03.
++
++And so on.
++
++A player checking in receives the first available non-reserved seat in the
++lowest-position room.
++
++Coordinator check-in is the exception: an assigned coordinator goes directly
++to their assigned room.
++
++### Waiting for a room
++
++If every currently-created room has no available ordinary-player seat, the
++checked-in player becomes:
++
++WAITING_FOR_ROOM
++
++This is not an error.
++
++When the Admin creates another staffed room, waiting players should fill the
++newly-available seats in check-in order.
++
++A player must never have more than one active room membership.
++
++---
++
++## 4. Game order
++
++The Admin configures the games for an event in an ordered sequence.
++
++Example:
++
++1. Among Us
++2. Skribbl
++3. Trivia
++
++Every room follows the same configured order.
++
++A coordinator cannot arbitrarily reorder the games.
++
++Rooms do NOT need to remain perfectly synchronized.
++
++Room 01 may already be preparing Skribbl while Room 03 is finishing its final
++Among Us round.
++
++That is allowed.
++
++Each player's application follows the authoritative state of their own room.
++
++---
++
++## 5. Game configuration
++
++Each event game has at least:
++
++- a position in the event;
++- a scoring template;
++- an Admin-configured duration;
++- an Admin-configured planned/max round count;
++- game-specific scoring configuration.
++
++The exact duration and number of rounds are event configuration, not hardcoded
++RECESS behavior.
++
++### Duration
++
++The duration is the intended game window.
++
++The timer starts when the coordinator starts that game for their room.
++
++When the configured duration expires:
++
++- an active round may be completed;
++- a new round should not normally be started;
++- the Admin may extend or override the window if necessary.
++
++### Planned rounds
++
++The configured round count is the maximum intended number of scored rounds for
++that game.
++
++A game ends for a room when either:
++
++- the configured rounds are completed; or
++- the time window expires and the currently-active round has been completed.
++
++Games such as Skribbl or Trivia may normally use one scored session.
++
++Among Us may use several rounds.
++
++---
++
++## 6. Round lifecycle
++
++A scored round has a clear boundary.
++
++Conceptually:
++
++SETUP
++→ START
++→ PLAYING
++→ RESULT ENTRY
++→ PREVIEW
++→ CONFIRMED
++→ COMPLETE
++
++### Participant snapshot
++
++When a coordinator starts a round, RECESS snapshots the players eligible to
++participate in that round.
++
++The result may only describe players from that round's participant snapshot.
++
++A player who arrives while a round is already active does not join that active
++round.
++
++They become eligible for the next round after the current result is confirmed.
++
++A confirmed result is therefore the authoritative boundary between rounds.
++
++---
++
++## 7. Late arrivals
++
++Late arrivals are allowed.
++
++They receive no retroactive score or points.
++
++If a player joins their room while a round is active:
++
++- they wait;
++- they are not included in the active round;
++- the coordinator completes and confirms that round;
++- the player becomes eligible for the next round.
++
++A missed round is DNP.
++
++---
++
++## 8. DNP and disconnects
++
++DNP means DID NOT PARTICIPATE.
++
++DNP is not a loss.
++
++DNP contributes zero raw score for that round.
++
++A player who disconnects and cannot complete the round is treated as DNP for
++that round.
++
++Points already earned in earlier confirmed rounds or games are never removed
++because the player later disconnects, leaves or misses another game.
++
++---
++
++## 9. Room communication
++
++Each room has its own human communication layer.
++
++The coordinator is responsible for verbally moving the room through setup,
++play, score entry and transitions.
++
++### Voice etiquette
++
++During active gameplay, players should remain muted unless the current game is
++in a phase where talking is naturally allowed.
++
++Examples:
++
++Among Us:
++- tasks/gameplay → muted;
++- meeting/discussion/voting → talking allowed;
++- gameplay resumes → muted.
++
++Skribbl:
++- active drawing/guessing → muted;
++- between rounds → talking may resume.
++
++Trivia:
++- active question/answer period → muted;
++- between questions or after results → talking may resume.
++
++RECESS does not need to technically control microphones.
++
++This is an event rule enforced socially by the coordinator.
++
++The exact voice-call platform is an event operational choice and is not part of
++the scoring engine.
++
++---
++
++## 10. Among Us result entry
++
++For every Among Us round, the coordinator records facts:
++
++- who participated;
++- who the actual impostors were;
++- which side won;
++- who was DNP/disconnected.
++
++The number of impostors is not hardcoded by the scoring engine.
++
++The event/game configuration may allow 1–3 impostors, and the actual roles are
++recorded after the round.
++
++The coordinator never types championship points.
++
++RECESS calculates the raw Among Us performance.
++
++---
++
++## 11. Skribbl result entry
++
++Skribbl is played normally using its external room/lobby.
++
++The coordinator distributes the required lobby link.
++
++At the end of the scored session, the coordinator enters the raw scores shown
++by Skribbl for the participating players.
++
++Example:
++
++kemz        4210
++theo        3980
++wh0isalfred 3840
++
++RECESS:
++
++- validates the players;
++- sorts the raw scores;
++- derives placement;
++- shows a preview;
++- converts the final game placement into RECESS championship points.
++
++The coordinator never performs the conversion manually.
++
++---
++
++## 12. Trivia result entry
++
++Trivia follows the same placement model as Skribbl.
++
++The external trivia platform produces raw player scores.
++
++The coordinator records those scores.
++
++RECESS derives placement and later converts the completed Trivia game into
++RECESS championship points.
++
++---
++
++## 13. Room progression
++
++When a room finishes one game, the coordinator prepares the room for the next
++configured game.
++
++Once everybody is ready, the coordinator starts the next game.
++
++This changes the authoritative state of that room.
++
++Players in that room should automatically see the relevant new state.
++
++Example:
++
++AMONG US COMPLETE
++
++becomes:
++
++SKRIBBL — GET READY
++
++then:
++
++SKRIBBL — LIVE
++
++Other rooms may still be on Among Us.
++
++This is expected.
++
++The Admin sees all room states centrally.
++
++---
++
++## 14. Corrections
++
++Before a result is confirmed, the coordinator may freely correct their input.
++
++After confirmation, the result is authoritative.
++
++A coordinator must not silently edit it.
++
++Instead they submit a correction request explaining the incorrect fact and the
++replacement.
++
++The Admin may:
++
++- approve the correction;
++- reject it;
++- or create a direct Admin correction.
++
++An approved correction replaces the source fact/result and causes RECESS to
++recalculate every consequence that depends on it.
++
++This may include:
++
++- game raw totals;
++- game placement;
++- RECESS points;
++- room standings;
++- qualification.
++
++Point totals themselves are never manually rewritten as the normal correction
++mechanism.
++
++---
++
++## 15. Ties
++
++Ties use competition ranking.
++
++Example:
++
++1
++2
++2
++4
++
++Players tied for a position share that position.
++
++RECESS does not secretly break ties.
++
++Qualification-boundary ties are handled by the scoring rules in SCORING.md.
++
++---
++
++## 16. Failures
++
++### Game crash
++
++If an external game crashes before a round is validly completed:
++
++- void the active round;
++- award no score from it;
++- restart if time allows.
++
++Previously confirmed rounds remain untouched.
++
++### Duplicate submission
++
++Submitting the same result more than once must not duplicate a result or award
++points twice.
++
++### Coordinator disappears
++
++The Admin assigns a replacement coordinator.
++
++The room must not lose its existing confirmed results.
++
++### Technical failure
++
++If RECESS itself fails, the night continues.
++
++The room coordinator records:
++
++- who participated;
++- roles where applicable;
++- raw scores;
++- winner/outcome;
++- DNPs.
++
++WhatsApp or another agreed backup channel becomes the emergency record.
++
++The Admin backfills the results once RECESS is available again.
++
++The software failing must not end RECESS the event.
++
++---
++
++## 17. Championship stage
++
++Room competition produces the players who qualify for the championship stage.
++
++For RECESS #1, the current intended default is the top 3 positions from each
++room.
++
++If a tie touches the qualification boundary, every player tied at that
++position qualifies.
++
++The number of qualification positions should remain configurable because the
++number of rooms may change.
++
++The exact championship game and final winner mechanism are intentionally not
++locked in this document yet.
++
++Room-phase scoring must work independently of that later decision.
+diff --git a/docs/ROADMAP.md b/docs/ROADMAP.md
+index 226dced..c73e36c 100644
+--- a/docs/ROADMAP.md
++++ b/docs/ROADMAP.md
+@@ -183,6 +183,44 @@ check in.
+ 
+ ---
+ 
++## Phase 6.5 — Night Engine Alignment
++
++**Complete.** Aligns the room/coordinator/game-progression data model with the
++approved real-world night (`docs/EVENT-OPS.md`, `docs/SCORING.md`) ahead of
++Scoring Engine V1. Not a new product phase in the original numbered sequence —
++inserted, same as the Event Builder and Player Shell V2 were pulled forward
++earlier, because Scoring Engine V1 cannot be built correctly against the old
++staff-based coordinator model or an unbounded room capacity.
++
++**Five pieces.** Registrant-based room coordinators (a real event player
++chosen by Admin, not a staff account) with reserved seat check-in; a hard
++1–15 room capacity ceiling; independent per-room game progression
++(`room_event_games`, `start_room_game()`/`complete_room_game()`); and
++Admin-configurable event-game duration (`event_games.duration_minutes`).
++
++**Explicitly not this phase.** `preview_result()`/`submit_result()`,
++championship point calculation, room leaderboards, Coordinator V1 UI, Admin
++Live Control — all Phase 7 and later.
++
++**A real consequence surfaced during this phase:** the Event Builder
++(Phase 6's own wizard) used to create rooms inline during event creation.
++That is no longer possible — a brand-new event has no registrants yet, and
++room creation now requires a real, eligible, already-registered coordinator
++candidate. Room configuration is now exclusively a Rooms-page operation,
++performed once real registrations exist to choose a coordinator from. The
++Event Builder still creates the event and configures its games; it no longer
++attempts to configure rooms.
++
++**Acceptance.** See the delivery report for this phase: capacity enforced at
++1–15, coordinator seat correctly reserved and consumed, strict sequential
++fill unbroken, waiting players fill new capacity in check-in order, rooms
++progress through configured games independently without skipping order, full
++pgTAP suite passes.
++
++**STOP.**
++
++---
++
+ ## Phase 7 — Scoring Engine
+ 
+ The hardest backend piece, built in isolation, with no leaderboard UI
+diff --git a/docs/SCREEN-STATUS.md b/docs/SCREEN-STATUS.md
+index ad34516..eb17938 100644
+--- a/docs/SCREEN-STATUS.md
++++ b/docs/SCREEN-STATUS.md
+@@ -98,9 +98,9 @@ Not started. Screens to be listed when references are supplied.
+ | # | Screen | Visual | Data | Status |
+ |---|---|---|---|---|
+ | A01 | Event Overview | Reference supplied | Live | APPROVED (now at /admin/events/[slug]/overview — see note below) |
+-| A02 | Rooms | Reference supplied | Live | APPROVED (now at /admin/events/[slug]/rooms — see note below) |
++| A02 | Rooms | Reference supplied | Live | REVIEW — was APPROVED, but Phase 6.5 changed a real form element: the coordinator field is now a candidate `<select>` (real eligible registrants) instead of a free-text staff UUID input, and room creation now requires a coordinator atomically. Overall layout/cards untouched, but re-approval is warranted since what was approved no longer matches what ships. |
+ | A03 | Events list | No reference — operational tool | Live | REVIEW |
+-| A04 | New Event builder | No reference — operational tool | Live | REVIEW |
++| A04 | New Event builder | No reference — operational tool | Live | REVIEW — Phase 6.5 removed the ROOMS configuration step from this wizard entirely (see docs/ROADMAP.md's Phase 6.5 entry for why: no registrant can exist yet to choose as coordinator at event-creation time). Rooms are now configured exclusively on the Rooms page (A02). |
+ 
+ A01/A02 moved from fixed routes (`/admin/overview`, `/admin/rooms`) to
+ event-scoped routes (`/admin/events/[slug]/overview`, `/admin/events/[slug]/rooms`)
+diff --git a/src/app/admin/(guarded)/events/[slug]/rooms/RoomsClient.tsx b/src/app/admin/(guarded)/events/[slug]/rooms/RoomsClient.tsx
+index d119335..3721e3e 100644
+--- a/src/app/admin/(guarded)/events/[slug]/rooms/RoomsClient.tsx
++++ b/src/app/admin/(guarded)/events/[slug]/rooms/RoomsClient.tsx
+@@ -3,12 +3,14 @@
+ import { useEffect, useState } from "react";
+ import { useRouter } from "next/navigation";
+ import {
+-  assignCoordinator,
+   assignWaitingPlayers,
++  createRoom,
++  fetchCoordinatorCandidates,
+   fetchRoomMembers,
++  replaceCoordinator,
+   upsertRoom,
+ } from "@/features/admin/actions";
+-import type { AdminRoom, RoomMember, RoomsOverview } from "@/features/admin/types";
++import type { AdminRoom, CoordinatorCandidate, RoomMember, RoomsOverview } from "@/features/admin/types";
+ import { PlayerAvatar } from "@/components/brand/PlayerAvatar";
+ 
+ type DrawerState = { mode: "create" } | { mode: "edit"; room: AdminRoom } | null;
+@@ -32,10 +34,25 @@ function RoomDrawer({ slug: drawerSlug, state, onClose, onSaved }: { slug: strin
+   const [label, setLabel] = useState(editing?.label ?? "");
+   const [capacity, setCapacity] = useState(editing?.capacity?.toString() ?? "");
+   const [whatsapp, setWhatsapp] = useState(editing?.whatsappGroupUrl ?? "");
+-  const [coordinatorId, setCoordinatorId] = useState(editing?.coordinator?.userId ?? "");
++  const [coordinatorId, setCoordinatorId] = useState(editing?.coordinator?.registrationId ?? "");
++  const [candidates, setCandidates] = useState<CoordinatorCandidate[] | null>(null);
+   const [submitting, setSubmitting] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+ 
++  useEffect(() => {
++    if (!state) return;
++    let cancelled = false;
++    fetchCoordinatorCandidates(drawerSlug).then((r) => {
++      if (cancelled) return;
++      if (r.ok) setCandidates(r.data);
++    });
++    return () => {
++      cancelled = true;
++    };
++    // Re-fetch each time the drawer opens — a candidate eligible a minute
++    // ago may have checked in or been assigned elsewhere since.
++  }, [drawerSlug, state]);
++
+   if (!state) return null;
+ 
+   const submit = async (e: React.FormEvent) => {
+@@ -44,26 +61,41 @@ function RoomDrawer({ slug: drawerSlug, state, onClose, onSaved }: { slug: strin
+     setSubmitting(true);
+     setError(null);
+     try {
+-      const result = await upsertRoom(drawerSlug, {
+-        roomId: editing?.id ?? null,
+-        label,
+-        capacity: capacity.trim() === "" ? null : Number(capacity),
+-        whatsappGroupUrl: whatsapp.trim() === "" ? null : whatsapp.trim(),
+-      });
+-      if (!result.ok) {
+-        setSubmitting(false);
+-        setError(result.message);
+-        return;
+-      }
+       if (editing) {
+-        const coordResult = await assignCoordinator(
+-          drawerSlug,
+-          editing.id,
+-          coordinatorId.trim() === "" ? null : coordinatorId.trim(),
+-        );
+-        if (!coordResult.ok) {
++        const result = await upsertRoom(drawerSlug, {
++          roomId: editing.id,
++          label,
++          capacity: capacity.trim() === "" ? null : Number(capacity),
++          whatsappGroupUrl: whatsapp.trim() === "" ? null : whatsapp.trim(),
++        });
++        if (!result.ok) {
+           setSubmitting(false);
+-          setError(coordResult.message);
++          setError(result.message);
++          return;
++        }
++        if (coordinatorId && coordinatorId !== editing.coordinator?.registrationId) {
++          const coordResult = await replaceCoordinator(drawerSlug, editing.id, coordinatorId);
++          if (!coordResult.ok) {
++            setSubmitting(false);
++            setError(coordResult.message);
++            return;
++          }
++        }
++      } else {
++        if (!coordinatorId) {
++          setSubmitting(false);
++          setError("Choose a coordinator to create this room.");
++          return;
++        }
++        const result = await createRoom(drawerSlug, {
++          label,
++          capacity: capacity.trim() === "" ? 0 : Number(capacity),
++          coordinatorRegistrationId: coordinatorId,
++          whatsappGroupUrl: whatsapp.trim() === "" ? null : whatsapp.trim(),
++        });
++        if (!result.ok) {
++          setSubmitting(false);
++          setError(result.message);
+           return;
+         }
+       }
+@@ -92,9 +124,11 @@ function RoomDrawer({ slug: drawerSlug, state, onClose, onSaved }: { slug: strin
+             <input
+               type="number"
+               min={1}
++              max={15}
+               value={capacity}
+               onChange={(e) => setCapacity(e.target.value)}
+-              placeholder="Not set — room won't receive check-in assignments"
++              placeholder={editing ? "Not set — room won't receive check-in assignments" : "1-15"}
++              required={!editing}
+             />
+           </label>
+           <label className="rc-admin-field">
+@@ -105,16 +139,27 @@ function RoomDrawer({ slug: drawerSlug, state, onClose, onSaved }: { slug: strin
+               placeholder="https://chat.whatsapp.com/..."
+             />
+           </label>
+-          {editing ? (
+-            <label className="rc-admin-field">
+-              <span>Coordinator (staff user ID)</span>
+-              <input
+-                value={coordinatorId}
+-                onChange={(e) => setCoordinatorId(e.target.value)}
+-                placeholder="Leave blank to remove"
+-              />
+-            </label>
+-          ) : null}
++          <label className="rc-admin-field">
++            <span>{editing ? "Replace coordinator" : "Coordinator"}</span>
++            <select value={coordinatorId} onChange={(e) => setCoordinatorId(e.target.value)} required={!editing}>
++              <option value="">
++                {editing ? "Keep current coordinator" : candidates === null ? "Loading eligible players…" : "Choose a player"}
++              </option>
++              {editing?.coordinator ? (
++                <option value={editing.coordinator.registrationId} disabled>
++                  Currently: {editing.coordinator.alias} (#{String(editing.coordinator.playerNumber).padStart(3, "0")})
++                </option>
++              ) : null}
++              {candidates?.map((c) => (
++                <option key={c.registrationId} value={c.registrationId}>
++                  {c.alias} (#{String(c.playerNumber).padStart(3, "0")})
++                </option>
++              ))}
++            </select>
++            <span className="rc-admin-field-hint">
++              Registered, not checked in, and not already coordinating another room.
++            </span>
++          </label>
+           {error ? <p className="rc-admin-error rc-admin-error--inline">{error}</p> : null}
+           <button type="submit" className="rc-admin-drawer-save" disabled={submitting}>
+             {submitting ? "SAVING…" : "SAVE ROOM"}
+@@ -242,7 +287,9 @@ export function RoomsClient({ slug, initial }: { slug: string; initial: RoomsOve
+               <div className="rc-admin-room-card-meta">
+                 {whatsappBadge(room)}
+                 <span className="rc-admin-room-coordinator">
+-                  {room.coordinator ? `Coordinator: ${room.coordinator.name}` : ""}
++                  {room.coordinator
++                    ? `Coordinator: ${room.coordinator.alias} (#${String(room.coordinator.playerNumber).padStart(3, "0")})${room.coordinator.checkedInAt ? "" : " — not checked in"}`
++                    : ""}
+                 </span>
+               </div>
+               <div className="rc-admin-room-card-actions">
+diff --git a/src/app/admin/(guarded)/events/new/NewEventForm.tsx b/src/app/admin/(guarded)/events/new/NewEventForm.tsx
+index 731fcda..6850401 100644
+--- a/src/app/admin/(guarded)/events/new/NewEventForm.tsx
++++ b/src/app/admin/(guarded)/events/new/NewEventForm.tsx
+@@ -2,7 +2,7 @@
+ 
+ import { useState } from "react";
+ import { useRouter } from "next/navigation";
+-import { addEventGame, createEvent, upsertRoom } from "@/features/admin/actions";
++import { addEventGame, createEvent } from "@/features/admin/actions";
+ import type { GameLibraryEntry } from "@/features/admin/types";
+ 
+ /**
+@@ -17,18 +17,17 @@ function toLagosIso(date: string, time: string): string | null {
+   return `${date}T${time}:00+01:00`;
+ }
+ 
+-type RoomDraft = { label: string; capacity: string };
+-
+ /**
+  * One page, three sections, a review step — not a paginated wizard.
+  * Creating the event itself is one RPC call (admin_create_event, 0019);
+- * games and rooms are added with one call per item afterward, since that is
+- * exactly what admin_add_event_game() and admin_upsert_room() already do
+- * one row at a time. There is no cross-step transaction wrapping all of
+- * this — a partial failure midway leaves a real, inspectable DRAFT event
+- * (never LIVE, never CHECK_IN) that the Overview/Rooms pages this task
+- * already built can finish configuring, rather than a phantom half-created
+- * event with nothing to point at.
++ * games are added with one call per item afterward, since that is exactly
++ * what admin_add_event_game() already does one row at a time. There is no
++ * cross-step transaction wrapping all of this — a partial failure midway
++ * leaves a real, inspectable DRAFT event (never LIVE, never CHECK_IN) that
++ * the Overview/Rooms pages this task already built can finish configuring,
++ * rather than a phantom half-created event with nothing to point at.
++ * Rooms are configured separately, later, on the Rooms page — see the
++ * submit handler below for why this wizard cannot create them itself.
+  */
+ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
+   const router = useRouter();
+@@ -47,7 +46,6 @@ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
+   const [capacity, setCapacity] = useState("30");
+   const [whatsapp, setWhatsapp] = useState("");
+   const [selectedGames, setSelectedGames] = useState<string[]>([]);
+-  const [rooms, setRooms] = useState<RoomDraft[]>([{ label: "ROOM 01", capacity: "15" }]);
+ 
+   const [reviewing, setReviewing] = useState(false);
+   const [submitting, setSubmitting] = useState(false);
+@@ -79,11 +77,6 @@ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
+     });
+   };
+ 
+-  const addRoom = () => setRooms((prev) => [...prev, { label: `ROOM ${String(prev.length + 1).padStart(2, "0")}`, capacity: "15" }]);
+-  const removeRoom = (i: number) => setRooms((prev) => prev.filter((_, idx) => idx !== i));
+-  const updateRoom = (i: number, patch: Partial<RoomDraft>) =>
+-    setRooms((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+-
+   const canReview =
+     name.trim() !== "" &&
+     slug.trim() !== "" &&
+@@ -135,21 +128,14 @@ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
+       }
+     }
+ 
+-    for (const room of rooms) {
+-      if (room.label.trim() === "") continue;
+-      const result = await upsertRoom(slug, {
+-        roomId: null,
+-        label: room.label.trim(),
+-        capacity: room.capacity.trim() === "" ? null : Number(room.capacity),
+-        whatsappGroupUrl: null,
+-      });
+-      if (!result.ok) {
+-        setSubmitting(false);
+-        setError(`Event and games were created, but a room failed: ${result.message} You can finish this on the Rooms page.`);
+-        router.push(`/admin/events/${slug}/rooms`);
+-        return;
+-      }
+-    }
++    // Rooms are NOT created here anymore (Phase 6.5 / migration 0021):
++    // admin_create_room() requires a real, eligible registered-and-not-yet-
++    // checked-in candidate as coordinator, and no registrant can possibly
++    // exist yet for an event this wizard has just created. Configuring
++    // rooms is now exclusively a Rooms-page operation, done once real
++    // registrations exist to choose a coordinator from — consistent with
++    // EVENT-OPS.md's own operational sequence ("assign a coordinator to
++    // every room" happens as a night-prep step, not at event creation).
+ 
+     router.push(`/admin/events/${slug}/overview`);
+   };
+@@ -179,8 +165,6 @@ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
+               </span>
+             ))}
+           </dd>
+-          <dt>Rooms</dt>
+-          <dd>{rooms.map((r) => `${r.label} (${r.capacity || "no capacity"})`).join(", ")}</dd>
+         </dl>
+         {error ? <p className="rc-admin-error rc-admin-error--inline">{error}</p> : null}
+         <div className="rc-admin-review-actions">
+@@ -293,23 +277,10 @@ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
+ 
+       <section className="rc-admin-card">
+         <h2 className="rc-admin-card-title">ROOMS</h2>
+-        <div className="rc-admin-room-drafts">
+-          {rooms.map((room, i) => (
+-            <div key={i} className="rc-admin-room-draft-row">
+-              <input value={room.label} onChange={(e) => updateRoom(i, { label: e.target.value })} placeholder="Room label" />
+-              <input
+-                type="number"
+-                min={1}
+-                value={room.capacity}
+-                onChange={(e) => updateRoom(i, { capacity: e.target.value })}
+-                placeholder="Capacity"
+-              />
+-              <button type="button" onClick={() => removeRoom(i)} aria-label="Remove room">✕</button>
+-            </div>
+-          ))}
+-        </div>
+-        <button type="button" className="rc-admin-configure" onClick={addRoom}>+ ADD ROOM</button>
+-        <p className="rc-admin-empty">Room WhatsApp links can be added later from the Rooms page.</p>
++        <p className="rc-admin-empty">
++          Rooms are configured on the Rooms page after this event exists — each one needs a real
++          registered player as coordinator, chosen from people who have actually signed up.
++        </p>
+       </section>
+ 
+       <button type="button" className="rc-admin-drawer-save rc-admin-builder-review" disabled={!canReview} onClick={() => setReviewing(true)}>
+diff --git a/src/app/manifest.ts b/src/app/manifest.ts
+index 27bf319..772b66d 100644
+--- a/src/app/manifest.ts
++++ b/src/app/manifest.ts
+@@ -11,7 +11,14 @@ export default function manifest(): MetadataRoute.Manifest {
+     scope: "/",
+     display: "standalone",
+ 
++    // The Web App Manifest spec requires literal color strings here — this
++    // is static JSON read by the OS before the app (and its CSS tokens)
++    // ever loads, not a component rendering with the design system's
++    // colors. Matches --paper (#f4ede0) closely; kept as a literal on
++    // purpose, not a bypassed token.
++    // eslint-disable-next-line no-restricted-syntax
+     background_color: "#F4E6D2",
++    // eslint-disable-next-line no-restricted-syntax
+     theme_color: "#F4E6D2",
+ 
+     icons: [
+diff --git a/src/features/admin/actions.ts b/src/features/admin/actions.ts
+index b608fbf..42807c1 100644
+--- a/src/features/admin/actions.ts
++++ b/src/features/admin/actions.ts
+@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
+ import type {
+   AdminResult,
+   AdminRoom,
++  CoordinatorCandidate,
+   EventDetail,
+   EventListItem,
+   EventOverview,
+@@ -71,16 +72,31 @@ function mapError(message: string): { code: string; message: string } {
+     event_not_found: "That event doesn't exist.",
+     room_not_found: "That room doesn't exist.",
+     game_not_found: "That game isn't in the library.",
++    event_game_not_found: "That game isn't configured for this event.",
+     invalid_label: "Enter a room label.",
+-    invalid_capacity: "Capacity must be a positive number.",
++    invalid_capacity: "Capacity must be between 1 and 15.",
+     invalid_whatsapp_url: "That doesn't look like a WhatsApp group link.",
+     invalid_staff: "That person isn't set up as staff yet.",
+     invalid_name: "Enter an event name.",
+     invalid_slug: "Enter an event slug.",
+     invalid_position: "Something went wrong ordering the games — try again.",
+     invalid_event: "Check the event details — a date, window or link looks wrong.",
++    invalid_duration: "Duration must be a positive number of minutes.",
+     slug_taken: "An event with that URL slug already exists.",
+     game_already_added: "That game is already in this event.",
++    coordinator_required: "Choose a coordinator to create this room.",
++    coordinator_wrong_event: "That player isn't registered for this event.",
++    coordinator_waitlisted: "A waitlisted player can't coordinate a room.",
++    coordinator_cancelled: "A cancelled registration can't coordinate a room.",
++    coordinator_checked_in: "That player has already checked in — coordinators must be chosen before they check in.",
++    coordinator_no_session: "That player doesn't have a valid session yet.",
++    coordinator_already_assigned: "That player is already coordinating another room.",
++    use_admin_create_room: "Use \u201cAdd room\u201d to create a new room — editing a room can't create one.",
++    capacity_below_active: "Capacity can't go below the players (and reserved coordinator seat) already in that room.",
++    room_game_already_live: "This room already has a different game live.",
++    game_order_violation: "The previous configured game must be completed first for this room.",
++    room_game_not_found: "This room hasn't started that game yet.",
++    room_game_not_live: "This room's game isn't currently live.",
+   };
+   return { code: code ?? "unknown", message: FRIENDLY[code ?? ""] ?? GENERIC };
+ }
+@@ -145,11 +161,13 @@ export async function addEventGame(
+   eventSlug: string,
+   gameId: string,
+   position: number,
+-): Promise<AdminResult<{ id: string; gameSlug: string; position: number }>> {
++  durationMinutes: number | null = null,
++): Promise<AdminResult<{ id: string; gameSlug: string; position: number; durationMinutes: number | null }>> {
+   return callAdminRpc("admin_add_event_game", {
+     p_event_slug: eventSlug,
+     p_game_id: gameId,
+     p_position: position,
++    p_duration_minutes: durationMinutes,
+   });
+ }
+ 
+@@ -163,9 +181,30 @@ export async function fetchRoomsOverview(slug: string): Promise<AdminResult<Room
+   return callAdminRpc<RoomsOverview>("admin_list_rooms", { p_event_slug: slug });
+ }
+ 
++/**
++ * Room creation — Phase 6.5's admin_create_room (migration 0021). The only
++ * way a room comes into existence now: atomic with a real, eligible
++ * registrant coordinator. upsertRoom below no longer creates rooms at all —
++ * calling it with roomId null now fails server-side with
++ * use_admin_create_room, not silently doing the wrong thing.
++ */
++export async function createRoom(
++  eventSlug: string,
++  input: { label: string; capacity: number; coordinatorRegistrationId: string; whatsappGroupUrl: string | null },
++): Promise<AdminResult<{ roomId: string; label: string }>> {
++  return callAdminRpc("admin_create_room", {
++    p_event_slug: eventSlug,
++    p_label: input.label,
++    p_capacity: input.capacity,
++    p_coordinator_registration_id: input.coordinatorRegistrationId,
++    p_whatsapp_group_url: input.whatsappGroupUrl,
++  });
++}
++
++/** Edit-only now — see createRoom above for how a room is actually created. */
+ export async function upsertRoom(
+   eventSlug: string,
+-  input: { roomId: string | null; label: string; capacity: number | null; whatsappGroupUrl: string | null },
++  input: { roomId: string; label: string; capacity: number | null; whatsappGroupUrl: string | null },
+ ): Promise<AdminResult<AdminRoom>> {
+   return callAdminRpc<AdminRoom>("admin_upsert_room", {
+     p_event_slug: eventSlug,
+@@ -176,15 +215,26 @@ export async function upsertRoom(
+   });
+ }
+ 
+-export async function assignCoordinator(
++/**
++ * Eligible candidates for a NEW coordinator assignment: registered for this
++ * event, not waitlisted/cancelled, not yet checked in, not already
++ * coordinating another room. alias/player number only — see
++ * admin_list_coordinator_candidates() (migration 0021) for why phone/real
++ * name never leave the database for this read.
++ */
++export async function fetchCoordinatorCandidates(eventSlug: string): Promise<AdminResult<CoordinatorCandidate[]>> {
++  return callAdminRpc<CoordinatorCandidate[]>("admin_list_coordinator_candidates", { p_event_slug: eventSlug });
++}
++
++export async function replaceCoordinator(
+   eventSlug: string,
+   roomId: string,
+-  userId: string | null,
+-): Promise<AdminResult<{ roomId: string; coordinatorUserId: string | null }>> {
+-  return callAdminRpc("admin_assign_coordinator", {
++  newCoordinatorRegistrationId: string,
++): Promise<AdminResult<{ roomId: string; coordinatorRegistrationId: string }>> {
++  return callAdminRpc("admin_replace_room_coordinator", {
+     p_event_slug: eventSlug,
+     p_room_id: roomId,
+-    p_user_id: userId,
++    p_new_registration_id: newCoordinatorRegistrationId,
+   });
+ }
+ 
+diff --git a/src/features/admin/types.ts b/src/features/admin/types.ts
+index dddaf6d..5abb5ea 100644
+--- a/src/features/admin/types.ts
++++ b/src/features/admin/types.ts
+@@ -22,9 +22,14 @@ export type AdminRoom = {
+   capacity: number | null;
+   whatsappGroupUrl: string | null;
+   occupancy: number;
+-  coordinator: { userId: string; name: string } | null;
++  coordinator: { registrationId: string; alias: string; playerNumber: number; checkedInAt: string | null } | null;
+ };
+ 
++/** A registration eligible to become a room's coordinator — see
++ * admin_list_coordinator_candidates() (migration 0021). Never carries phone
++ * or real name; alias/player number are enough for identification. */
++export type CoordinatorCandidate = { registrationId: string; alias: string; playerNumber: number };
++
+ export type WaitingPlayer = { alias: string; playerNumber: number; checkedInAt: string };
+ 
+ export type RoomsOverview = { rooms: AdminRoom[]; waiting: WaitingPlayer[] };
+diff --git a/supabase/tests/01_schema.test.sql b/supabase/tests/01_schema.test.sql
+index 0c8c276..5e6bfc9 100644
+--- a/supabase/tests/01_schema.test.sql
++++ b/supabase/tests/01_schema.test.sql
+@@ -16,7 +16,7 @@ select is(
+   (select count(*)::int from pg_type t
+     join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typtype = 'e'),
+-  11, 'test 2: all 11 enums exist');
++  12, 'test 2: all 12 enums exist (11 original + room_game_status, Phase 6.5)');
+ 
+ select is(
+   (select array_agg(e.enumlabel::text order by e.enumsortorder)
+diff --git a/supabase/tests/11_admin_and_rooms.test.sql b/supabase/tests/11_admin_and_rooms.test.sql
+index fc4ed8f..47b7d95 100644
+--- a/supabase/tests/11_admin_and_rooms.test.sql
++++ b/supabase/tests/11_admin_and_rooms.test.sql
+@@ -140,14 +140,19 @@ select is(
+ -- --------------------------------------------------------------------- room CRUD
+ 
+ select throws_like(
+-  $$ select public.admin_upsert_room('test-admin18', null, '', 10, null) $$,
++  $$ select public.admin_upsert_room('test-admin18', (select id from rooms where event_id=(select id from ev) and label='ROOM 01'), '', 10, null) $$,
+   'invalid_label:%', 'test 40: an empty label is refused');
+ select throws_like(
+-  $$ select public.admin_upsert_room('test-admin18', null, 'Bad WA', 10, 'https://evil.example.com/x') $$,
++  $$ select public.admin_upsert_room('test-admin18', (select id from rooms where event_id=(select id from ev) and label='ROOM 01'), 'Bad WA', 10, 'https://evil.example.com/x') $$,
+   'invalid_whatsapp_url:%', 'test 40: a non-WhatsApp url is refused');
+ 
++-- Room creation is Phase 6.5's admin_create_room (atomic, requires a real
++-- eligible coordinator) — admin_upsert_room no longer creates, see 0021.
++select pg_temp.register('ROOM03COORD', '+2348040000099');
++update public.event_registrations set auth_user_id = gen_random_uuid() where alias = 'ROOM03COORD';
+ select lives_ok(
+-  $$ select public.admin_upsert_room('test-admin18', null, 'ROOM 03', 5, null) $$,
++  $$ select public.admin_create_room('test-admin18', 'ROOM 03', 5,
++       (select id from event_registrations where alias = 'ROOM03COORD')) $$,
+   'test 40: creating a new room succeeds');
+ select is(
+   (select position from rooms where event_id=(select id from ev) and label='ROOM 03'), 3,
+
+# --- New files (created, not modified) ---
+diff --git a/docs/SCORING.md b/docs/SCORING.md
+new file mode 100644
+index 0000000..7ae6f92
+--- /dev/null
++++ b/docs/SCORING.md
+@@ -0,0 +1,483 @@
++# RECESS — Scoring
++
++This document defines how RECESS converts performance inside different games
++into one fair room competition.
++
++The central rule is:
++
++> Raw scores from different games are never directly added together.
++
++4,210 Skribbl points and 8,700 Trivia points do not mean the same thing.
++
++RECESS therefore separates:
++
++RAW GAME PERFORMANCE
++→ GAME PLACEMENT
++→ RECESS CHAMPIONSHIP POINTS
++
++---
++
++## 1. Scoring principles
++
++1. Every configured game contributes equally to the room championship unless an
++   event explicitly changes that rule in a future version.
++
++2. For RECESS V1, every completed game contributes a maximum of 20 RECESS
++   championship points per player.
++
++3. Raw external-game scores exist only to determine performance inside that
++   game.
++
++4. A coordinator records facts and raw scores.
++
++5. RECESS calculates placements and championship points.
++
++6. DNP is zero, not a loss penalty.
++
++7. Ties share placement.
++
++8. Championship totals are derived from immutable/auditable scoring facts.
++
++---
++
++## 2. Three scoring layers
++
++### Layer 1 — Round raw performance
++
++This is what happened inside a specific round.
++
++Examples:
++
++Among Us:
++- role;
++- winning side;
++- participant status.
++
++Skribbl:
++- raw score.
++
++Trivia:
++- raw score.
++
++---
++
++### Layer 2 — Game performance
++
++All confirmed rounds belonging to the same game and room are combined into the
++player's raw game total.
++
++Players are ranked inside that game.
++
++Examples:
++
++AMONG US
++
++kemz        5 raw
++alfred      4 raw
++theo        4 raw
++sarahh      2 raw
++
++Placement:
++
++1 kemz
++2 alfred
++2 theo
++4 sarahh
++
++The raw numbers do not become championship points directly.
++
++---
++
++### Layer 3 — RECESS championship points
++
++Once the room completes that game, its final game ranking is normalized onto
++the RECESS 0–20 scale.
++
++Only then are championship points settled.
++
++---
++
++## 3. RECESS normalized points
++
++Let:
++
++N = number of distinct ranked players who actually participated in at least
++one scored round/session of that game.
++
++P = the player's competition placement in that game's final ranking.
++
++For N >= 2:
++
++RECESS_POINTS =
++round(
++  20 × (N - P) / (N - 1)
++)
++
++The result is rounded to the nearest whole championship point.
++
++This means:
++
++- first place always receives 20;
++- last ranked place receives 0;
++- intermediate positions are distributed across the same range;
++- rooms of different sizes still award the same maximum score.
++
++### Example — 15 ranked players
++
++1st  = 20
++2nd  = 19
++3rd  = 17
++4th  = 16
++5th  = 14
++6th  = 13
++7th  = 11
++8th  = 10
++9th  = 9
++10th = 7
++11th = 6
++12th = 4
++13th = 3
++14th = 1
++15th = 0
++
++### Example — 10 ranked players
++
++1st  = 20
++2nd  = 18
++3rd  = 16
++4th  = 13
++5th  = 11
++6th  = 9
++7th  = 7
++8th  = 4
++9th  = 2
++10th = 0
++
++---
++
++## 4. Who counts in N?
++
++A player is included in the game's ranked field if they participated in at
++least one confirmed scored round/session of that game.
++
++A player who DNPs the entire game:
++
++- receives 0 RECESS championship points for that game;
++- does not expand the ranked denominator N.
++
++A late arrival who joins and participates in a later valid round is included in
++the game ranking.
++
++This means RECESS ranks people who actually competed while still recording a
++full-game DNP as zero.
++
++---
++
++## 5. Ties
++
++Final game placement uses competition ranking.
++
++Example:
++
++1 Alfred
++2 Kemz
++2 Theo
++4 Sarah
++
++Kemz and Theo both use P = 2 in the normalization formula and therefore
++receive exactly the same RECESS championship points.
++
++The next placement is 4.
++
++There are no hidden decimal scores or secret tiebreakers.
++
++---
++
++## 6. Among Us raw scoring
++
++Among Us uses ROLE_OUTCOME scoring.
++
++For RECESS V1, the default raw values are:
++
++Crewmate win = 1 raw Among Us point
++Impostor win = 2 raw Among Us points
++Loss = 0
++DNP/disconnect = 0
++
++These values are NOT championship points.
++
++They exist only to rank performance within Among Us.
++
++Example:
++
++Round 1:
++Alfred is Crewmate and wins → +1 raw
++
++Round 2:
++Alfred is Impostor and wins → +2 raw
++
++Round 3:
++Alfred is Crewmate and loses → +0 raw
++
++Alfred's Among Us raw total = 3.
++
++Once all valid Among Us rounds for the room are completed, RECESS ranks the
++raw totals.
++
++That final placement is then normalized onto the 0–20 RECESS scale.
++
++### Roles
++
++RECESS does not assume a fixed number of impostors.
++
++The coordinator records the actual role of each participant.
++
++The configured game may allow 1–3 impostors.
++
++The scoring engine cares about the role key and configured outcome values, not
++about hardcoded Among Us assumptions.
++
++---
++
++## 7. Placement games
++
++Skribbl and Trivia use placement scoring.
++
++The external platform's score is stored as raw game performance.
++
++For one-session games, that score is the player's raw game total.
++
++If the event configures multiple scored sessions, V1 aggregates confirmed raw
++scores by addition:
++
++GAME_RAW_TOTAL =
++sum(confirmed round/session raw scores)
++
++The resulting totals are ranked.
++
++That game placement is then converted to 0–20 RECESS championship points.
++
++---
++
++## 8. DNP
++
++DNP contributes zero raw score for the missed round.
++
++A player who participated in other rounds of the same game keeps their earlier
++raw performance and remains eligible for final game placement.
++
++A player who DNPs every scored round/session receives 0 championship points for
++that game.
++
++DNP never removes championship points already earned from an earlier completed
++game.
++
++---
++
++## 9. Voided rounds
++
++A voided round contributes nothing.
++
++Its raw result must not affect:
++
++- game totals;
++- game placement;
++- championship points;
++- room standings.
++
++If the game is replayed, the replacement is a new valid round/result.
++
++---
++
++## 10. Game settlement
++
++Round results do not directly become final championship points when a game may
++contain several rounds.
++
++Instead, the room-game is settled when the coordinator completes that game.
++
++Settlement performs:
++
++confirmed round results
++→ raw game totals
++→ competition ranking
++→ normalized RECESS points
++→ championship point transactions
++
++A room-game may have only one current authoritative settlement.
++
++This prevents a game with three rounds from being worth three times as much as
++a one-round game.
++
++Among Us, Skribbl and Trivia are therefore each worth the same maximum:
++
++20 RECESS points.
++
++With three equal-weight games, the maximum room-phase total is:
++
++60 RECESS points.
++
++---
++
++## 11. Room standings
++
++Room championship standings are:
++
++SUM(
++  settled RECESS championship points
++  from completed games
++)
++
++Raw scores are never added directly to this total.
++
++Unfinished games should not constantly mutate the authoritative championship
++total.
++
++The completed-game settlement is the point at which that game's contribution
++becomes official.
++
++---
++
++## 12. Qualification
++
++At the end of the room phase, players are ranked by total RECESS championship
++points within their room.
++
++RECESS #1 currently intends to qualify the top 3 positions from each room.
++
++The qualification count should be configurable.
++
++### Qualification ties
++
++If a tie reaches the qualification boundary, everybody tied at that position
++qualifies.
++
++Example:
++
++1 Alfred
++2 Kemz
++3 Theo
++3 Sarah
++5 Josh
++
++If the top 3 positions qualify:
++
++Alfred, Kemz, Theo and Sarah qualify.
++
++No tiebreak is secretly applied.
++
++---
++
++## 13. Corrections
++
++A correction changes the underlying scoring fact.
++
++It does not manually change a player's total.
++
++Example:
++
++Skribbl was submitted as:
++
++Theo = 3820
++
++Correct value:
++
++Theo = 3920
++
++After Admin approval, RECESS must:
++
++1. supersede the incorrect result;
++2. create the corrected authoritative result;
++3. recompute the affected game totals;
++4. recompute placement;
++5. recompute the room-game settlement;
++6. void championship transactions produced by the old settlement;
++7. create the correct replacement transactions;
++8. recompute room standings;
++9. recompute qualification if required;
++10. create an audit entry.
++
++Historical records remain visible.
++
++---
++
++## 14. Idempotency
++
++Result submission must be idempotent.
++
++If network lag causes the coordinator to submit the same confirmed result
++multiple times, RECESS must still create:
++
++- one authoritative result;
++- one scoring effect;
++- no duplicate championship points.
++
++Every result submission uses an idempotency key.
++
++---
++
++## 15. Preview before confirmation
++
++No coordinator result should go directly from form input to authoritative
++scoring.
++
++The normal flow is:
++
++INPUT
++→ VALIDATE
++→ PREVIEW
++→ CONFIRM
++
++Preview shows what RECESS understood.
++
++Examples:
++
++Among Us:
++- participating players;
++- impostors;
++- winning side;
++- DNPs;
++- raw score effect.
++
++Skribbl/Trivia:
++- submitted raw scores;
++- derived placement;
++- ties.
++
++The coordinator confirms facts.
++
++They do not confirm hand-calculated points.
++
++---
++
++## 16. Manual adjustments
++
++MANUAL scoring is an emergency/admin escape hatch.
++
++It is not part of normal coordinator flow.
++
++A manual adjustment:
++
++- requires Admin authority;
++- requires a reason/note;
++- is recorded in the point ledger;
++- is visible in audit history.
++
++Normal mistakes should be fixed by correcting the source result instead.
++
++---
++
++## 17. Championship round
++
++The room-phase scoring engine must not assume how the championship finale will
++work.
++
++Whole-event/finale rounds may exist, but RECESS #1 has not yet locked:
++
++- the championship game;
++- whether room-phase points carry forward;
++- whether the finale alone determines the champion;
++- exact finale scoring.
++
++Scoring Engine V1 should therefore implement room-phase scoring and
++qualification cleanly without inventing finale rules.
+diff --git a/supabase/migrations/20260901002100_night_engine_alignment.sql b/supabase/migrations/20260901002100_night_engine_alignment.sql
+new file mode 100644
+index 0000000..f788adf
+--- /dev/null
++++ b/supabase/migrations/20260901002100_night_engine_alignment.sql
+@@ -0,0 +1,1015 @@
++-- 0021 — Phase 6.5: Night Engine Alignment.
++--
++-- Aligns the room/coordinator/game-progression data model with the approved
++-- real-world night (docs/EVENT-OPS.md, docs/SCORING.md) ahead of Scoring
++-- Engine V1. Five pieces, in the order below:
++--
++--   1. Registrant-based room coordinators (room_coordinators) — a new,
++--      dedicated table. The existing staff-based coordinator_assignments
++--      (0007) is left completely alone: it models an EVENT-WIDE staff
++--      coordinator concept (room_id nullable) that this slice does not
++--      touch and does not need. A real room coordinator is now one of the
++--      people who registered for the event, not a staff_profiles row — the
++--      two are different people in different tables, and conflating them
++--      would have meant either fabricating a staff_profiles row for every
++--      coordinator (a real player, not staff) or loosening
++--      require_event_admin() in a way the brief explicitly warns against.
++--   2. Coordinator seat reservation — derived, not a stored boolean: a
++--      room's coordinator "has the reservation" for as long as their own
++--      active room_coordinators row exists and they have no active
++--      room_membership in that room yet. The moment they check in, their
++--      membership row exists and the reservation computation naturally
++--      stops counting it as reserved — no separate flag to keep in sync.
++--   3. rooms.capacity <= 15, added as a forward constraint after confirming
++--      the seed data (both seeded rooms are capacity 15) is compatible.
++--   4. room_event_games — the smallest per-room-game progression model:
++--      one row per (room, event_game), a three-value status, and two
++--      narrow functions (start_room_game / complete_room_game) enforcing
++--      "no two LIVE at once per room" and "cannot skip configured order."
++--      Named room_event_games rather than a generic "sessions" table
++--      because it is exactly what it says: this room's row for this
++--      event_game. round_participants/rounds already link to room + game;
++--      this table sits one level up, describing the room's progress
++--      through the game itself, not any one round.
++--   5. event_games.duration_minutes — minutes, not seconds: every duration
++--      this schema or EVENT-OPS.md discusses is phrased in whole minutes
++--      ("30 minutes"), nothing about a game window needs sub-minute
++--      precision, and Admin UI will collect it as a plain minutes input.
++--      Also games.default_duration_minutes as a safe, nullable library
++--      default, copied at attach time exactly the way default_round_count
++--      already copies into planned_rounds (§17) — never a hardcoded
++--      per-game number.
++--
++-- Explicitly NOT in this migration: preview_result/submit_result,
++-- championship point calculation, room leaderboards, Coordinator V1 UI,
++-- Admin Live Control. Those are Scoring Engine V1 and later.
++
++-- ============================================================ 1. ENUM
++
++create type public.room_game_status as enum ('PENDING', 'LIVE', 'COMPLETE');
++-- No RESULT_PENDING: EVENT-OPS.md's round lifecycle (§6) already has its own
++-- RESULT ENTRY / PREVIEW / CONFIRMED states for a *round*; adding a parallel
++-- state at the room-game level before Scoring Engine V1 exists would be
++-- exactly the unnecessary complexity the brief warns against. A room-game
++-- is either not started, in progress, or done.
++
++-- ============================================================ 2. TABLES
++
++-- ---------------------------------------------------- room_coordinators
++
++create table public.room_coordinators (
++  id              uuid primary key default gen_random_uuid(),
++  -- Denormalised for the composite FKs below, same pattern room_memberships
++  -- already uses — makes it structurally impossible to assign event A's
++  -- registration as coordinator of event B's room.
++  event_id        uuid not null references public.events (id) on delete cascade,
++  room_id         uuid not null,
++  registration_id uuid not null,
++  assigned_at     timestamptz not null default now(),
++  -- History, not deletion: replacing a coordinator sets replaced_at on the
++  -- old row and inserts a new one. §invariant D — Admin replacement must
++  -- not require destructive delete, and an audit/history view over "who
++  -- coordinated this room" stays honest.
++  replaced_at     timestamptz,
++
++  constraint room_coordinators_replaced_after_assigned check (
++    replaced_at is null or replaced_at >= assigned_at
++  ),
++  constraint room_coordinators_room_fkey foreign key (room_id, event_id)
++    references public.rooms (id, event_id) on delete cascade,
++  constraint room_coordinators_registration_fkey foreign key (registration_id, event_id)
++    references public.event_registrations (id, event_id) on delete cascade
++);
++
++-- Invariant A: exactly one ACTIVE (replaced_at is null) coordinator per room.
++create unique index room_coordinators_one_active_per_room
++  on public.room_coordinators (room_id) where replaced_at is null;
++
++-- Invariant B: a registration cannot actively coordinate two rooms in the
++-- same event.
++create unique index room_coordinators_one_active_per_registration
++  on public.room_coordinators (event_id, registration_id) where replaced_at is null;
++
++create index room_coordinators_room_idx on public.room_coordinators (room_id);
++
++alter table public.room_coordinators enable row level security;
++grant select, insert, update, delete on public.room_coordinators
++  to anon, authenticated, service_role;
++
++comment on table public.room_coordinators is
++  'Registrant-based room coordinators (Phase 6.5) — a real event player
++   chosen by Admin to run a room, distinct from the staff-based
++   coordinator_assignments (0007), which models an event-wide STAFF
++   coordinator concept this table does not replace.';
++
++-- --------------------------------------------------------- room_event_games
++
++create table public.room_event_games (
++  id            uuid primary key default gen_random_uuid(),
++  event_id      uuid not null references public.events (id) on delete cascade,
++  room_id       uuid not null,
++  event_game_id uuid not null,
++  status        public.room_game_status not null default 'PENDING',
++  started_at    timestamptz,
++  ended_at      timestamptz,
++  created_at    timestamptz not null default now(),
++  updated_at    timestamptz not null default now(),
++
++  constraint room_event_games_ended_needs_start check (ended_at is null or started_at is not null),
++  constraint room_event_games_ended_after_start check (ended_at is null or ended_at >= started_at),
++  constraint room_event_games_room_fkey foreign key (room_id, event_id)
++    references public.rooms (id, event_id) on delete cascade,
++  constraint room_event_games_event_game_fkey foreign key (event_game_id, event_id)
++    references public.event_games (id, event_id) on delete cascade,
++  constraint room_event_games_key unique (room_id, event_game_id)
++);
++
++-- "One room cannot have two different games LIVE simultaneously" as a real
++-- constraint, not just application discipline that a direct write could
++-- still violate.
++create unique index room_event_games_one_live_per_room
++  on public.room_event_games (room_id) where status = 'LIVE';
++
++create index room_event_games_event_idx on public.room_event_games (event_id);
++
++create trigger room_event_games_set_updated_at
++  before update on public.room_event_games
++  for each row execute function public.set_updated_at();
++
++alter table public.room_event_games enable row level security;
++grant select, insert, update, delete on public.room_event_games
++  to anon, authenticated, service_role;
++
++comment on table public.room_event_games is
++  'One row per (room, event_game): this room''s progress through this
++   configured game. Rows are created lazily by start_room_game(), not
++   pre-seeded — a room that never reaches Trivia never gets a Trivia row.
++   Sits above rounds/round_participants (already room+game scoped) as the
++   thing that actually says whether the room''s current game is live.';
++
++-- ============================================================ 3. CAPACITY <= 15
++
++-- Compatibility check first, per the brief: do not add a constraint that
++-- silently clamps or rejects real existing data without saying so. Both
++-- seeded rooms are capacity 15 (supabase/seed.sql) — compatible. If this
++-- ever ran against a database with a room >15, the ALTER below would fail
++-- loudly with a constraint-violation error naming the row, not silently
++-- rewrite it.
++do $$
++begin
++  if exists (select 1 from public.rooms where capacity > 15) then
++    raise exception 'incompatible_data: a room with capacity > 15 already exists — resolve manually before this migration can proceed'
++      using errcode = '23514';
++  end if;
++end;
++$$;
++
++alter table public.rooms add constraint rooms_capacity_max_15 check (capacity is null or capacity <= 15);
++
++comment on column public.rooms.capacity is
++  'RECESS room MEMBERSHIP capacity: how many players belong to this room,
++   INCLUDING the coordinator''s reserved seat. 1-15 inclusive (Phase 6.5) —
++   Among Us caps lobbies at 15, and RECESS rooms follow that ceiling. Not
++   event_games.room_capacity, which is a game''s own lobby limit. §2.9.1.';
++
++-- ============================================================ 4. DURATION
++
++alter table public.games add column default_duration_minutes integer;
++alter table public.games add constraint games_default_duration_positive
++  check (default_duration_minutes is null or default_duration_minutes > 0);
++
++comment on column public.games.default_duration_minutes is
++  'Library default game window, in minutes. Nullable/optional — copied into
++   event_games.duration_minutes at attach time exactly the way
++   default_round_count copies into planned_rounds (§17); never a hardcoded
++   system-wide default. Alfred has not set these yet — see docs/EVENT-OPS.md
++   §16, the exact per-game defaults are intentionally unresolved.';
++
++alter table public.event_games add column duration_minutes integer;
++alter table public.event_games add constraint event_games_duration_positive
++  check (duration_minutes is null or duration_minutes > 0);
++
++comment on column public.event_games.duration_minutes is
++  'The intended game window for THIS event''s configuration of this game, in
++   minutes (EVENT-OPS.md §5, "the operating contract calls this the game
++   window"). Nullable until Admin configures it — a game added to an event
++   before its duration is decided is a real, valid, not-yet-fully-configured
++   state, same treatment rooms.capacity already gets. The timer itself
++   (when it starts, expiry behaviour) is start_room_game()''s concern below,
++   not this column — this column is configuration, not a running clock.';
++
++-- ============================================================ 5. FUNCTIONS
++
++-- --------------------------------------------- coordinator candidate list
++
++-- Read-only. Admin-only (candidate aliases/player numbers are not PII, but
++-- this is still an Admin operational read, not a public one). Deliberately
++-- returns alias + player number only — no phone, no real name — matching
++-- the brief's "Alias/name/player number are enough for identification."
++create or replace function public.admin_list_coordinator_candidates(p_event_slug text)
++returns jsonb
++language plpgsql
++stable
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_event_id uuid;
++begin
++  perform public.require_event_admin();
++
++  select id into v_event_id from events where slug = p_event_slug;
++  if not found then
++    raise exception 'event_not_found: no such event' using errcode = 'no_data_found';
++  end if;
++
++  return coalesce((
++    select jsonb_agg(jsonb_build_object(
++             'registrationId', er.id,
++             'alias', er.alias,
++             'playerNumber', er.player_number
++           ) order by er.player_number)
++      from event_registrations er
++     where er.event_id = v_event_id
++       and er.status = 'REGISTERED'
++       and er.checked_in_at is null
++       and er.auth_user_id is not null
++       and not exists (
++         select 1 from room_coordinators rc
++          where rc.event_id = v_event_id and rc.registration_id = er.id and rc.replaced_at is null
++       )
++  ), '[]'::jsonb);
++end;
++$$;
++
++revoke all on function public.admin_list_coordinator_candidates(text) from public;
++grant execute on function public.admin_list_coordinator_candidates(text) to authenticated;
++
++-- ---------------------------------------- shared coordinator eligibility check
++
++-- Used by both admin_create_room and admin_replace_room_coordinator so the
++-- eligibility rule is defined exactly once. Raises with a specific message
++-- per failure reason rather than one generic "not eligible" — the pgTAP
++-- suite (tests 6-10) checks these are distinguishable, and an Admin fixing
++-- a rejected room creation needs to know which rule they hit.
++create or replace function public.assert_coordinator_eligible(
++  p_event_id uuid,
++  p_registration_id uuid
++) returns void
++language plpgsql
++stable
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_reg record;
++begin
++  select * into v_reg from event_registrations
++   where id = p_registration_id;
++
++  if not found or v_reg.event_id <> p_event_id then
++    raise exception 'coordinator_wrong_event: candidate does not belong to this event' using errcode = '23514';
++  end if;
++  if v_reg.status = 'WAITLISTED' then
++    raise exception 'coordinator_waitlisted: a waitlisted registration cannot coordinate' using errcode = '23514';
++  end if;
++  if v_reg.status = 'CANCELLED' then
++    raise exception 'coordinator_cancelled: a cancelled registration cannot coordinate' using errcode = '23514';
++  end if;
++  if v_reg.checked_in_at is not null then
++    raise exception 'coordinator_checked_in: an already checked-in registration cannot become a new coordinator' using errcode = '23514';
++  end if;
++  if v_reg.auth_user_id is null then
++    raise exception 'coordinator_no_session: candidate has no player session' using errcode = '23514';
++  end if;
++  if exists (
++    select 1 from room_coordinators rc
++     where rc.event_id = p_event_id and rc.registration_id = p_registration_id and rc.replaced_at is null
++  ) then
++    raise exception 'coordinator_already_assigned: candidate is already coordinating another room' using errcode = '23514';
++  end if;
++end;
++$$;
++
++revoke all on function public.assert_coordinator_eligible(uuid, uuid) from public;
++-- Not granted to authenticated: this is a shared internal check called
++-- (with SECURITY DEFINER privilege) by the two admin functions below, not
++-- an RPC surface of its own.
++
++-- ------------------------------------------------------------- admin_create_room
++
++-- Atomic room + coordinator creation. This is the ONLY way to create a new
++-- operational room from this migration forward — admin_upsert_room (below)
++-- stops supporting creation, so there is exactly one path into existence
++-- for a room and it always has a coordinator.
++create or replace function public.admin_create_room(
++  p_event_slug text,
++  p_label text,
++  p_capacity integer,
++  p_coordinator_registration_id uuid,
++  p_whatsapp_group_url text default null
++) returns jsonb
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_uid uuid := auth.uid();
++  v_event_id uuid;
++  v_next_position integer;
++  v_room public.rooms;
++begin
++  perform public.require_event_admin();
++
++  select id into v_event_id from events where slug = p_event_slug;
++  if not found then
++    raise exception 'event_not_found: no such event' using errcode = 'no_data_found';
++  end if;
++
++  if btrim(coalesce(p_label, '')) = '' then
++    raise exception 'invalid_label: room label is required' using errcode = '22023';
++  end if;
++  if p_capacity is null or p_capacity <= 0 or p_capacity > 15 then
++    raise exception 'invalid_capacity: capacity must be between 1 and 15' using errcode = '22023';
++  end if;
++  if p_whatsapp_group_url is not null and not public.is_whatsapp_group_url(p_whatsapp_group_url) then
++    raise exception 'invalid_whatsapp_url: not a WhatsApp group invite link' using errcode = '22023';
++  end if;
++  if p_coordinator_registration_id is null then
++    raise exception 'coordinator_required: an operational room must have a coordinator' using errcode = '22023';
++  end if;
++
++  perform public.assert_coordinator_eligible(v_event_id, p_coordinator_registration_id);
++
++  select coalesce(max(position), 0) + 1 into v_next_position from rooms where event_id = v_event_id;
++
++  insert into rooms (event_id, label, position, capacity, whatsapp_group_url)
++  values (v_event_id, btrim(p_label), v_next_position, p_capacity, p_whatsapp_group_url)
++  returning * into v_room;
++
++  insert into room_coordinators (event_id, room_id, registration_id)
++  values (v_event_id, v_room.id, p_coordinator_registration_id);
++
++  insert into audit_logs (event_id, actor_user_id, action, entity_type, entity_id, after)
++  values (v_event_id, v_uid, 'room.created', 'rooms', v_room.id,
++          jsonb_build_object('label', v_room.label, 'capacity', v_room.capacity,
++                              'coordinatorRegistrationId', p_coordinator_registration_id));
++
++  -- A brand-new room may have ordinary headroom that existing waiting
++  -- players can use immediately (EVENT-OPS.md §3, "when the Admin creates
++  -- another staffed room, waiting players should fill the newly-available
++  -- seats in check-in order"). Reuses the same function Admin would call by
++  -- hand — one implementation of "assign waiting players," not two.
++  perform public.admin_assign_waiting_players(p_event_slug);
++
++  return jsonb_build_object('roomId', v_room.id, 'label', v_room.label);
++end;
++$$;
++
++revoke all on function public.admin_create_room(text, text, integer, uuid, text) from public;
++grant execute on function public.admin_create_room(text, text, integer, uuid, text) to authenticated;
++
++-- ------------------------------------------------------------- admin_upsert_room
++
++-- Now EDIT-ONLY. Creation moved to admin_create_room above so a room can
++-- never come into existence without a coordinator through this function.
++create or replace function public.admin_upsert_room(
++  p_event_slug text,
++  p_room_id    uuid,
++  p_label      text,
++  p_capacity   integer,
++  p_whatsapp_group_url text
++) returns jsonb
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_uid uuid := auth.uid();
++  v_event_id uuid;
++  v_room record;
++  v_active_count int;
++  v_reserved int;
++begin
++  perform public.require_event_admin();
++
++  select id into v_event_id from events where slug = p_event_slug;
++  if not found then
++    raise exception 'event_not_found: no such event' using errcode = 'no_data_found';
++  end if;
++
++  if p_room_id is null then
++    raise exception 'use_admin_create_room: creating a new room requires a coordinator — call admin_create_room instead'
++      using errcode = '22023';
++  end if;
++
++  if btrim(coalesce(p_label, '')) = '' then
++    raise exception 'invalid_label: room label is required' using errcode = '22023';
++  end if;
++  if p_capacity is not null and (p_capacity <= 0 or p_capacity > 15) then
++    raise exception 'invalid_capacity: capacity must be between 1 and 15' using errcode = '22023';
++  end if;
++  if p_whatsapp_group_url is not null and not public.is_whatsapp_group_url(p_whatsapp_group_url) then
++    raise exception 'invalid_whatsapp_url: not a WhatsApp group invite link' using errcode = '22023';
++  end if;
++
++  select * into v_room from rooms where id = p_room_id and event_id = v_event_id for update;
++  if not found then
++    raise exception 'room_not_found: no such room on this event' using errcode = 'no_data_found';
++  end if;
++
++  if p_capacity is not null then
++    select count(*) into v_active_count from room_memberships where room_id = p_room_id and left_at is null;
++    v_reserved := case when exists (
++      select 1 from room_coordinators rc
++       where rc.room_id = p_room_id and rc.replaced_at is null
++         and not exists (
++           select 1 from room_memberships rm
++            where rm.room_id = p_room_id and rm.registration_id = rc.registration_id and rm.left_at is null
++         )
++    ) then 1 else 0 end;
++
++    if p_capacity < v_active_count + v_reserved then
++      raise exception 'capacity_below_active: capacity cannot be set below current active membership plus the reserved coordinator seat (% already in use)', v_active_count + v_reserved
++        using errcode = '23514';
++    end if;
++  end if;
++
++  update rooms
++     set label = btrim(p_label), capacity = p_capacity, whatsapp_group_url = p_whatsapp_group_url
++   where id = p_room_id
++   returning * into v_room;
++
++  insert into audit_logs (event_id, actor_user_id, action, entity_type, entity_id, before, after)
++  values (v_event_id, v_uid, 'room.updated', 'rooms', v_room.id,
++          jsonb_build_object('label', v_room.label),
++          jsonb_build_object('label', v_room.label, 'capacity', v_room.capacity, 'whatsapp', v_room.whatsapp_group_url is not null));
++
++  -- A capacity increase can open ordinary seats for people already waiting.
++  if p_capacity is not null then
++    perform public.admin_assign_waiting_players(p_event_slug);
++  end if;
++
++  return jsonb_build_object('id', v_room.id, 'label', v_room.label, 'position', v_room.position,
++                             'capacity', v_room.capacity, 'whatsappGroupUrl', v_room.whatsapp_group_url);
++end;
++$$;
++
++-- ------------------------------------------------- admin_replace_room_coordinator
++
++create or replace function public.admin_replace_room_coordinator(
++  p_event_slug text,
++  p_room_id uuid,
++  p_new_registration_id uuid
++) returns jsonb
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_uid uuid := auth.uid();
++  v_event_id uuid;
++  v_old_id uuid;
++begin
++  perform public.require_event_admin();
++
++  select id into v_event_id from events where slug = p_event_slug;
++  if not found then
++    raise exception 'event_not_found: no such event' using errcode = 'no_data_found';
++  end if;
++
++  if not exists (select 1 from rooms where id = p_room_id and event_id = v_event_id) then
++    raise exception 'room_not_found: no such room on this event' using errcode = 'no_data_found';
++  end if;
++
++  perform public.assert_coordinator_eligible(v_event_id, p_new_registration_id);
++
++  -- Old reservation ceases (the partial unique index only guards ACTIVE
++  -- rows, so this must happen before the insert below, in the same
++  -- transaction, or the new insert would violate
++  -- room_coordinators_one_active_per_room).
++  update room_coordinators
++     set replaced_at = now()
++   where room_id = p_room_id and replaced_at is null
++   returning id into v_old_id;
++
++  insert into room_coordinators (event_id, room_id, registration_id)
++  values (v_event_id, p_room_id, p_new_registration_id);
++
++  insert into audit_logs (event_id, actor_user_id, action, entity_type, entity_id, before, after)
++  values (v_event_id, v_uid, 'room.coordinator_replaced', 'rooms', p_room_id,
++          jsonb_build_object('previousAssignmentId', v_old_id),
++          jsonb_build_object('newRegistrationId', p_new_registration_id));
++
++  return jsonb_build_object('roomId', p_room_id, 'coordinatorRegistrationId', p_new_registration_id);
++end;
++$$;
++
++revoke all on function public.admin_upsert_room(text, uuid, text, integer, text) from public;
++revoke all on function public.admin_replace_room_coordinator(text, uuid, uuid) from public;
++grant execute on function public.admin_upsert_room(text, uuid, text, integer, text) to authenticated;
++grant execute on function public.admin_replace_room_coordinator(text, uuid, uuid) to authenticated;
++
++-- ------------------------------------------------------------- admin_list_rooms
++
++-- Coordinator now comes from room_coordinators + event_registrations
++-- (alias/player number), not coordinator_assignments + staff_profiles.
++-- checkedInAt on the coordinator lets the Admin UI show "not checked in
++-- yet" vs "checked in" without a second query.
++create or replace function public.admin_list_rooms(p_event_slug text)
++returns jsonb
++language plpgsql
++stable
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_event_id uuid;
++  v_result jsonb;
++begin
++  perform public.require_event_admin();
++
++  select id into v_event_id from events where slug = p_event_slug;
++  if not found then
++    raise exception 'event_not_found: no such event' using errcode = 'no_data_found';
++  end if;
++
++  select jsonb_build_object(
++    'rooms', (
++      select coalesce(jsonb_agg(jsonb_build_object(
++               'id', ro.id, 'label', ro.label, 'position', ro.position, 'capacity', ro.capacity,
++               'whatsappGroupUrl', ro.whatsapp_group_url,
++               'occupancy', (select count(*) from room_memberships where room_id = ro.id and left_at is null),
++               'coordinator', (
++                 select jsonb_build_object(
++                          'registrationId', er.id, 'alias', er.alias, 'playerNumber', er.player_number,
++                          'checkedInAt', er.checked_in_at
++                        )
++                   from room_coordinators rc
++                   join event_registrations er on er.id = rc.registration_id
++                  where rc.room_id = ro.id and rc.replaced_at is null
++                  limit 1
++               )
++             ) order by ro.position), '[]'::jsonb)
++        from rooms ro where ro.event_id = v_event_id
++    ),
++    'waiting', (
++      select coalesce(jsonb_agg(jsonb_build_object(
++               'alias', er.alias, 'playerNumber', er.player_number, 'checkedInAt', er.checked_in_at
++             ) order by er.checked_in_at), '[]'::jsonb)
++        from event_registrations er
++       where er.event_id = v_event_id and er.checked_in_at is not null
++         and not exists (select 1 from room_memberships rm where rm.registration_id = er.id and rm.left_at is null)
++    )
++  ) into v_result;
++
++  return v_result;
++end;
++$$;
++
++-- --------------------------------------------------------------- check_in_player
++
++-- Same shape as 0017's version, with two changes: (1) a coordinator check
++-- BEFORE the sequential-fill loop — an active coordinator goes straight to
++-- their own room and never enters the loop at all; (2) the loop's own
++-- capacity test now subtracts a room's unfulfilled coordinator reservation,
++-- so an ordinary player can never take the seat being held for a
++-- coordinator who has not checked in yet.
++create or replace function public.check_in_player()
++returns jsonb
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_uid           uuid;
++  v_reg           record;
++  v_event         record;
++  v_room          record;
++  v_membership_id uuid;
++  v_coordinating_room_id uuid;
++  v_reserved      int;
++begin
++  v_uid := auth.uid();
++  if v_uid is null then
++    raise exception 'not_authenticated: no player session' using errcode = '28000';
++  end if;
++
++  select r.* into v_reg
++    from public.event_registrations r
++   where r.auth_user_id = v_uid
++   order by r.created_at desc
++   limit 1;
++
++  if not found then
++    raise exception 'not_registered: no registration found for this session' using errcode = 'no_data_found';
++  end if;
++
++  if v_reg.status = 'WAITLISTED' then
++    raise exception 'waitlisted: waitlisted registrations cannot check in' using errcode = '55000';
++  end if;
++  if v_reg.status = 'CANCELLED' then
++    raise exception 'cancelled: this registration was cancelled' using errcode = '55000';
++  end if;
++
++  select * into v_event from public.events where id = v_reg.event_id;
++
++  if v_event.status <> 'CHECK_IN' then
++    raise exception 'check_in_not_open: check-in is not open right now' using errcode = '55000';
++  end if;
++  if v_event.checkin_opens_at is not null and now() < v_event.checkin_opens_at then
++    raise exception 'check_in_not_open: check-in has not opened yet' using errcode = '55000';
++  end if;
++  if v_event.checkin_closes_at is not null and now() >= v_event.checkin_closes_at then
++    raise exception 'check_in_closed: check-in has closed' using errcode = '55000';
++  end if;
++
++  if v_reg.checked_in_at is not null then
++    return public.get_player_state();
++  end if;
++
++  update public.event_registrations
++     set checked_in_at = now()
++   where id = v_reg.id and checked_in_at is null;
++
++  if not found then
++    return public.get_player_state();
++  end if;
++
++  -- Coordinator path: an active, not-yet-seated coordinator assignment for
++  -- this registration goes straight to that room. Locked the same way the
++  -- ordinary loop below locks rooms, so a concurrent replacement (which
++  -- also touches room_coordinators) cannot race this into assigning the
++  -- wrong room.
++  select rc.room_id into v_coordinating_room_id
++    from room_coordinators rc
++   where rc.event_id = v_reg.event_id and rc.registration_id = v_reg.id and rc.replaced_at is null
++   for update;
++
++  if v_coordinating_room_id is not null then
++    -- Idempotent the same way the ordinary path is: only insert if this
++    -- registration has no active membership in this room yet.
++    if not exists (
++      select 1 from room_memberships
++       where room_id = v_coordinating_room_id and registration_id = v_reg.id and left_at is null
++    ) then
++      insert into public.room_memberships (event_id, room_id, registration_id)
++      values (v_reg.event_id, v_coordinating_room_id, v_reg.id)
++      returning id into v_membership_id;
++    end if;
++
++    insert into public.audit_logs (event_id, actor_user_id, action, entity_type, entity_id, after)
++    values (
++      v_reg.event_id, v_uid, 'registration.checked_in', 'event_registrations', v_reg.id,
++      jsonb_build_object('checked_in_at', now(), 'room_membership_id', v_membership_id, 'asCoordinator', true)
++    );
++
++    return public.get_player_state();
++  end if;
++
++  -- Ordinary path: strict sequential fill, reservation-aware.
++  for v_room in
++    select rm.* from public.rooms rm
++     where rm.event_id = v_reg.event_id
++     order by rm.position
++     for update
++  loop
++    if v_room.capacity is null then
++      continue;
++    end if;
++
++    v_reserved := case when exists (
++      select 1 from room_coordinators rc
++       where rc.room_id = v_room.id and rc.replaced_at is null
++         and not exists (
++           select 1 from room_memberships rm2
++            where rm2.room_id = v_room.id and rm2.registration_id = rc.registration_id and rm2.left_at is null
++         )
++    ) then 1 else 0 end;
++
++    if (
++      select count(*) from public.room_memberships
++       where room_id = v_room.id and left_at is null
++    ) < (v_room.capacity - v_reserved) then
++      insert into public.room_memberships (event_id, room_id, registration_id)
++      values (v_reg.event_id, v_room.id, v_reg.id)
++      returning id into v_membership_id;
++      exit;
++    end if;
++  end loop;
++
++  insert into public.audit_logs (event_id, actor_user_id, action, entity_type, entity_id, after)
++  values (
++    v_reg.event_id, v_uid, 'registration.checked_in', 'event_registrations', v_reg.id,
++    jsonb_build_object('checked_in_at', now(), 'room_membership_id', v_membership_id)
++  );
++
++  return public.get_player_state();
++end;
++$$;
++
++-- ------------------------------------------------------ admin_assign_waiting_players
++
++-- Same reservation-aware capacity test as check_in_player() above. Waiting
++-- players are, by construction, never coordinators (a coordinator always
++-- gets a direct room assignment the moment they check in — see above — so
++-- they can never accumulate in the "checked in, no active membership" set
++-- this function scans), so no coordinator-direct-assignment branch is
++-- needed here, only the reservation-aware ordinary capacity test.
++create or replace function public.admin_assign_waiting_players(p_event_slug text)
++returns jsonb
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_uid uuid := auth.uid();
++  v_event record;
++  v_reg record;
++  v_room record;
++  v_membership_id uuid;
++  v_reserved int;
++  v_assigned int := 0;
++  v_still_waiting int := 0;
++begin
++  perform public.require_event_admin();
++
++  select * into v_event from events where slug = p_event_slug;
++  if not found then
++    raise exception 'event_not_found: no such event' using errcode = 'no_data_found';
++  end if;
++
++  -- Same lock as check_in_player(): every room row for the event, held for
++  -- the whole operation, so this cannot race a player's own concurrent
++  -- check-in (which takes the identical lock) into overfilling a room.
++  for v_reg in
++    select er.* from event_registrations er
++     where er.event_id = v_event.id and er.checked_in_at is not null
++       and not exists (select 1 from room_memberships rm where rm.registration_id = er.id and rm.left_at is null)
++     order by er.checked_in_at
++  loop
++    v_membership_id := null;
++
++    for v_room in
++      select ro.* from rooms ro where ro.event_id = v_event.id order by ro.position for update
++    loop
++      if v_room.capacity is null then
++        continue;
++      end if;
++
++      v_reserved := case when exists (
++        select 1 from room_coordinators rc
++         where rc.room_id = v_room.id and rc.replaced_at is null
++           and not exists (
++             select 1 from room_memberships rm2
++              where rm2.room_id = v_room.id and rm2.registration_id = rc.registration_id and rm2.left_at is null
++           )
++      ) then 1 else 0 end;
++
++      if (select count(*) from room_memberships where room_id = v_room.id and left_at is null) < (v_room.capacity - v_reserved) then
++        insert into room_memberships (event_id, room_id, registration_id)
++        values (v_event.id, v_room.id, v_reg.id)
++        returning id into v_membership_id;
++        exit;
++      end if;
++    end loop;
++
++    if v_membership_id is not null then
++      v_assigned := v_assigned + 1;
++    else
++      v_still_waiting := v_still_waiting + 1;
++      -- Every remaining room is full for this pass — later waiting
++      -- registrations will not find room either, so stop scanning them.
++      exit;
++    end if;
++  end loop;
++
++  insert into audit_logs (event_id, actor_user_id, action, entity_type, after)
++  values (v_event.id, v_uid, 'room.waiting_assigned', 'events',
++          jsonb_build_object('assigned', v_assigned, 'stillWaiting', v_still_waiting));
++
++  return jsonb_build_object('assigned', v_assigned, 'stillWaiting', v_still_waiting);
++end;
++$$;
++
++revoke all on function public.admin_list_rooms(text) from public;
++revoke all on function public.check_in_player() from public;
++revoke all on function public.admin_assign_waiting_players(text) from public;
++grant execute on function public.admin_list_rooms(text) to authenticated;
++grant execute on function public.check_in_player() to authenticated;
++grant execute on function public.admin_assign_waiting_players(text) to authenticated;
++
++-- ------------------------------------------------------------- admin_add_event_game
++
++-- Signature gains p_duration_minutes. Postgres resolves overloads by full
++-- parameter signature, so leaving the old 3-argument version in place
++-- alongside a new 4-argument one would not "replace" it — it would create
++-- real ambiguity risk and a genuine dangling old overload. The explicit
++-- DROP is what a forward-only migration changing a signature looks like;
++-- migration 0019 itself (already deployed) is untouched.
++drop function if exists public.admin_add_event_game(text, uuid, integer);
++
++create or replace function public.admin_add_event_game(
++  p_event_slug text,
++  p_game_id    uuid,
++  p_position   integer,
++  p_duration_minutes integer default null
++) returns jsonb
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_uid uuid := auth.uid();
++  v_event_id uuid;
++  v_game record;
++  v_event_game public.event_games;
++begin
++  perform public.require_event_admin();
++
++  select id into v_event_id from events where slug = p_event_slug;
++  if not found then
++    raise exception 'event_not_found: no such event' using errcode = 'no_data_found';
++  end if;
++
++  select * into v_game from games where id = p_game_id and status = 'ACTIVE';
++  if not found then
++    raise exception 'game_not_found: no such game in the library' using errcode = 'no_data_found';
++  end if;
++
++  if p_position is null or p_position <= 0 then
++    raise exception 'invalid_position: position must be a positive number' using errcode = '22023';
++  end if;
++  if p_duration_minutes is not null and p_duration_minutes <= 0 then
++    raise exception 'invalid_duration: duration must be a positive number of minutes' using errcode = '22023';
++  end if;
++
++  begin
++    insert into event_games (event_id, game_id, position, scoring_template, planned_rounds, duration_minutes)
++    values (
++      v_event_id, v_game.id, p_position, v_game.scoring_template, v_game.default_round_count,
++      coalesce(p_duration_minutes, v_game.default_duration_minutes)
++    )
++    returning * into v_event_game;
++  exception when unique_violation then
++    raise exception 'game_already_added: this game is already in the event' using errcode = '23505';
++  end;
++
++  insert into audit_logs (event_id, actor_user_id, action, entity_type, entity_id, after)
++  values (v_event_id, v_uid, 'event_game.added', 'event_games', v_event_game.id,
++          jsonb_build_object('gameSlug', v_game.slug, 'position', p_position, 'durationMinutes', v_event_game.duration_minutes));
++
++  return jsonb_build_object('id', v_event_game.id, 'gameSlug', v_game.slug, 'position', p_position, 'durationMinutes', v_event_game.duration_minutes);
++end;
++$$;
++
++revoke all on function public.admin_add_event_game(text, uuid, integer, integer) from public;
++grant execute on function public.admin_add_event_game(text, uuid, integer, integer) to authenticated;
++
++-- ----------------------------------------------- room-game progression auth helper
++
++-- True if auth.uid() is either staff (SUPER_ADMIN/EVENT_ADMIN) or the
++-- currently active coordinator of the given room. Shared by
++-- start_room_game/complete_room_game so "who may move this room's game
++-- forward" is defined once. Never trusts a client-supplied room id alone —
++-- every caller of this still separately confirms the room belongs to the
++-- event in question.
++create or replace function public.is_authorized_for_room(p_room_id uuid)
++returns boolean
++language plpgsql
++stable
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_uid uuid := auth.uid();
++begin
++  if v_uid is null then
++    return false;
++  end if;
++  if public.current_staff_role() in ('SUPER_ADMIN', 'EVENT_ADMIN') then
++    return true;
++  end if;
++  return exists (
++    select 1 from room_coordinators rc
++     join event_registrations er on er.id = rc.registration_id
++    where rc.room_id = p_room_id and rc.replaced_at is null and er.auth_user_id = v_uid
++  );
++end;
++$$;
++
++revoke all on function public.is_authorized_for_room(uuid) from public;
++
++-- ------------------------------------------------------------- start_room_game
++
++-- Coordinator-or-admin. Enforces: no other game LIVE in this room right
++-- now, and normal progression cannot skip the configured event-game order
++-- (the immediately preceding configured game, if one exists, must be
++-- COMPLETE for this room). Idempotent: starting an already-LIVE game for
++-- this room is a no-op returning the current row, not an error — a
++-- coordinator's retried tap must not be a hard failure.
++create or replace function public.start_room_game(
++  p_room_id uuid,
++  p_event_game_id uuid
++) returns jsonb
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_event_id uuid;
++  v_this_game record;
++  v_prev_game record;
++  v_prev_row record;
++  v_row public.room_event_games;
++begin
++  select event_id into v_event_id from rooms where id = p_room_id;
++  if v_event_id is null then
++    raise exception 'room_not_found: no such room' using errcode = 'no_data_found';
++  end if;
++
++  if not public.is_authorized_for_room(p_room_id) then
++    raise exception 'not_authorized: not this room''s coordinator or an event admin' using errcode = '42501';
++  end if;
++
++  select * into v_this_game from event_games where id = p_event_game_id and event_id = v_event_id;
++  if not found then
++    raise exception 'event_game_not_found: this game is not configured for this room''s event' using errcode = 'no_data_found';
++  end if;
++
++  select * into v_row from room_event_games where room_id = p_room_id and event_game_id = p_event_game_id for update;
++  if found and v_row.status = 'LIVE' then
++    return jsonb_build_object('roomId', p_room_id, 'eventGameId', p_event_game_id, 'status', v_row.status);
++  end if;
++
++  if exists (select 1 from room_event_games where room_id = p_room_id and status = 'LIVE') then
++    raise exception 'room_game_already_live: this room already has a different game live' using errcode = '55000';
++  end if;
++
++  select * into v_prev_game from event_games
++   where event_id = v_event_id and position < v_this_game.position
++   order by position desc limit 1;
++
++  if found then
++    select * into v_prev_row from room_event_games
++     where room_id = p_room_id and event_game_id = v_prev_game.id;
++    if not found or v_prev_row.status <> 'COMPLETE' then
++      raise exception 'game_order_violation: the previous configured game must be completed first for this room' using errcode = '55000';
++    end if;
++  end if;
++
++  insert into room_event_games (event_id, room_id, event_game_id, status, started_at)
++  values (v_event_id, p_room_id, p_event_game_id, 'LIVE', now())
++  on conflict (room_id, event_game_id) do update
++    set status = 'LIVE', started_at = now(), ended_at = null
++  returning * into v_row;
++
++  return jsonb_build_object('roomId', p_room_id, 'eventGameId', p_event_game_id, 'status', v_row.status, 'startedAt', v_row.started_at);
++end;
++$$;
++
++revoke all on function public.start_room_game(uuid, uuid) from public;
++grant execute on function public.start_room_game(uuid, uuid) to authenticated;
++
++-- ----------------------------------------------------------- complete_room_game
++
++create or replace function public.complete_room_game(
++  p_room_id uuid,
++  p_event_game_id uuid
++) returns jsonb
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_row public.room_event_games;
++begin
++  if not public.is_authorized_for_room(p_room_id) then
++    raise exception 'not_authorized: not this room''s coordinator or an event admin' using errcode = '42501';
++  end if;
++
++  select * into v_row from room_event_games
++   where room_id = p_room_id and event_game_id = p_event_game_id for update;
++
++  if not found then
++    raise exception 'room_game_not_found: this room has not started this game' using errcode = 'no_data_found';
++  end if;
++
++  if v_row.status = 'COMPLETE' then
++    return jsonb_build_object('roomId', p_room_id, 'eventGameId', p_event_game_id, 'status', v_row.status);
++  end if;
++  if v_row.status <> 'LIVE' then
++    raise exception 'room_game_not_live: this room''s game is not currently live' using errcode = '55000';
++  end if;
++
++  update room_event_games
++     set status = 'COMPLETE', ended_at = now()
++   where id = v_row.id
++   returning * into v_row;
++
++  return jsonb_build_object('roomId', p_room_id, 'eventGameId', p_event_game_id, 'status', v_row.status, 'endedAt', v_row.ended_at);
++end;
++$$;
++
++revoke all on function public.complete_room_game(uuid, uuid) from public;
++grant execute on function public.complete_room_game(uuid, uuid) to authenticated;
+diff --git a/supabase/tests/14_night_engine_alignment.test.sql b/supabase/tests/14_night_engine_alignment.test.sql
+new file mode 100644
+index 0000000..92209a4
+--- /dev/null
++++ b/supabase/tests/14_night_engine_alignment.test.sql
+@@ -0,0 +1,502 @@
++-- Test 43 — Phase 6.5: Night Engine Alignment (migration 0021).
++begin;
++select plan(46);
++
++create or replace function pg_temp.as_player(p_uid uuid) returns void
++language sql as $$
++  insert into auth.users (id) values (p_uid);
++  select set_config('request.jwt.claim.sub', p_uid::text, true);
++$$;
++
++create or replace function pg_temp.as_staff(p_uid uuid, p_role public.staff_role) returns void
++language sql as $$
++  insert into auth.users (id) values (p_uid);
++  insert into public.staff_profiles (user_id, name, role) values (p_uid, 'Test Staff', p_role);
++  select set_config('request.jwt.claim.sub', p_uid::text, true);
++$$;
++
++-- Registers directly (bypassing register_player()) with a fake auth_user_id
++-- so the row is coordinator-eligible without a real session; tests that
++-- need the registration to actually check in separately reassign
++-- auth_user_id to a real as_player() session, same pattern 11's fixture uses.
++create or replace function pg_temp.register(p_event_id uuid, p_alias text, p_phone text) returns uuid
++language plpgsql as $$
++declare v_player_id uuid; v_reg_id uuid; v_no int;
++begin
++  insert into public.players (phone_e164, real_name, canonical_alias) values (p_phone, p_alias, p_alias) returning id into v_player_id;
++  update public.event_counters set next_player_no = next_player_no + 1
++   where event_id = p_event_id returning next_player_no - 1 into v_no;
++  insert into public.event_registrations (event_id, player_id, alias, player_number, status, auth_user_id)
++  values (p_event_id, v_player_id, p_alias, v_no, 'REGISTERED', gen_random_uuid()) returning id into v_reg_id;
++  return v_reg_id;
++end $$;
++
++-- ---------------------------------------------------------------------- fixture
++
++insert into public.events (
++  slug, name, status, starts_at, timezone, timezone_label,
++  checkin_opens_at, checkin_closes_at, capacity
++) values (
++  'test-night21', 'Test Night Engine Event', 'CHECK_IN',
++  now() + interval '2 hours', 'Africa/Lagos', 'WAT',
++  now() - interval '30 minutes', now() + interval '2 hours', 60
++);
++create temporary table ev21 as select id from public.events where slug = 'test-night21';
++
++insert into public.events (slug, name, status, starts_at, timezone, timezone_label, capacity)
++values ('test-night21-other', 'Other Event', 'REGISTRATION', now() + interval '10 days', 'Africa/Lagos', 'WAT', 30);
++create temporary table ev21_other as select id from public.events where slug = 'test-night21-other';
++
++insert into public.games (slug, name, platform, scoring_template, status, artwork_url)
++values ('test-game21', 'Test Game 21', 'BROWSER', 'PLACEMENT', 'ACTIVE', '/games/test-game21.webp');
++insert into public.games (slug, name, platform, scoring_template, status, artwork_url)
++values ('test-game21b', 'Test Game 21b', 'BROWSER', 'PLACEMENT', 'ACTIVE', '/games/test-game21b.webp');
++
++insert into public.event_games (event_id, game_id, position, scoring_template, planned_rounds, duration_minutes)
++select ev21.id, g.id, 1, 'PLACEMENT', 1, 30 from ev21, public.games g where g.slug = 'test-game21';
++insert into public.event_games (event_id, game_id, position, scoring_template, planned_rounds)
++select ev21.id, g.id, 2, 'PLACEMENT', 1 from ev21, public.games g where g.slug = 'test-game21b';
++
++select pg_temp.as_staff(gen_random_uuid(), 'EVENT_ADMIN');
++
++-- ==================================================================== ROOM / CAPACITY
++
++select pg_temp.register((select id from ev21), 'cap1cand', '+2348050000001');
++select lives_ok(
++  $$ select public.admin_create_room('test-night21', 'CAP 1 ROOM 2', 1,
++       (select id from public.event_registrations where alias = 'cap1cand')) $$,
++  'test 43: capacity 1 accepted where valid');
++
++select pg_temp.register((select id from ev21), 'cap15cand', '+2348050000002');
++select lives_ok(
++  $$ select public.admin_create_room('test-night21', 'CAP 15 ROOM', 15,
++       (select id from public.event_registrations where alias = 'cap15cand')) $$,
++  'test 43: capacity 15 accepted');
++
++select pg_temp.register((select id from ev21), 'cap16cand', '+2348050000003');
++select throws_like(
++  $$ select public.admin_create_room('test-night21', 'CAP 16 ROOM', 16,
++       (select id from public.event_registrations where alias = 'cap16cand')) $$,
++  'invalid_capacity%',
++  'test 43: capacity 16 rejected');
++
++select throws_like(
++  $$ select public.admin_create_room('test-night21', 'CAP 0 ROOM', 0,
++       (select id from public.event_registrations where alias = 'cap16cand')) $$,
++  'invalid_capacity%',
++  'test 43: capacity 0 rejected');
++
++select pg_temp.register((select id from ev21), 'nocoordcand', '+2348050000004');
++select throws_like(
++  $$ select public.admin_create_room('test-night21', 'NO COORD ROOM', 5, null) $$,
++  'coordinator_required%',
++  'test 43: room creation without coordinator rejected');
++
++select pg_temp.register((select id from ev21_other), 'wrongevcand', '+2348050000005');
++select throws_like(
++  $$ select public.admin_create_room('test-night21', 'WRONG EVENT ROOM', 5,
++       (select id from public.event_registrations where alias = 'wrongevcand')) $$,
++  'coordinator_wrong_event%',
++  'test 43: coordinator from wrong event rejected');
++
++insert into public.players (phone_e164, real_name, canonical_alias) values ('+2348050000006', 'waitlistcand', 'waitlistcand');
++insert into public.event_registrations (event_id, player_id, alias, player_number, status, auth_user_id)
++select (select id from ev21), (select id from players where phone_e164='+2348050000006'), 'waitlistcand', 9001, 'WAITLISTED', gen_random_uuid();
++select throws_like(
++  $$ select public.admin_create_room('test-night21', 'WAITLIST ROOM', 5,
++       (select id from public.event_registrations where alias = 'waitlistcand')) $$,
++  'coordinator_waitlisted%',
++  'test 43: waitlisted candidate rejected');
++
++insert into public.players (phone_e164, real_name, canonical_alias) values ('+2348050000007', 'cancelledcand', 'cancelledcand');
++insert into public.event_registrations (event_id, player_id, alias, player_number, status, auth_user_id)
++select (select id from ev21), (select id from players where phone_e164='+2348050000007'), 'cancelledcand', 9002, 'CANCELLED', gen_random_uuid();
++select throws_like(
++  $$ select public.admin_create_room('test-night21', 'CANCELLED ROOM', 5,
++       (select id from public.event_registrations where alias = 'cancelledcand')) $$,
++  'coordinator_cancelled%',
++  'test 43: cancelled candidate rejected');
++
++select pg_temp.register((select id from ev21), 'checkedincand', '+2348050000008');
++update public.event_registrations set checked_in_at = now() where alias = 'checkedincand';
++select throws_like(
++  $$ select public.admin_create_room('test-night21', 'CHECKEDIN ROOM', 5,
++       (select id from public.event_registrations where alias = 'checkedincand')) $$,
++  'coordinator_checked_in%',
++  'test 43: checked-in candidate rejected');
++
++select pg_temp.register((select id from ev21), 'doublecoordcand', '+2348050000009');
++select public.admin_create_room('test-night21', 'FIRST ROOM FOR DBL', 5,
++  (select id from public.event_registrations where alias = 'doublecoordcand'));
++select throws_like(
++  $$ select public.admin_create_room('test-night21', 'SECOND ROOM FOR DBL', 5,
++       (select id from public.event_registrations where alias = 'doublecoordcand')) $$,
++  'coordinator_already_assigned%',
++  'test 43: coordinator already assigned elsewhere rejected');
++
++-- ==================================================================== SEAT RESERVATION
++
++insert into public.events (
++  slug, name, status, starts_at, timezone, timezone_label,
++  checkin_opens_at, checkin_closes_at, capacity
++) values (
++  'test-night21-seats', 'Seat Reservation Event', 'CHECK_IN',
++  now() + interval '2 hours', 'Africa/Lagos', 'WAT',
++  now() - interval '30 minutes', now() + interval '2 hours', 30
++);
++create temporary table ev21s as select id from public.events where slug = 'test-night21-seats';
++
++select pg_temp.register((select id from ev21s), 'seatcoord', '+2348051000001');
++select public.admin_create_room('test-night21-seats', 'SEAT ROOM', 15,
++  (select id from public.event_registrations where alias = 'seatcoord'));
++create temporary table seatroom as select id from public.rooms where event_id = (select id from ev21s) and label = 'SEAT ROOM';
++
++-- 14 ordinary players check in (real check_in_player() calls as real sessions).
++do $$
++declare i int; v_reg_id uuid; v_phone text; v_alias text; v_uid uuid;
++begin
++  for i in 1..14 loop
++    v_alias := 'seatp' || i;
++    v_phone := '+23480520000' || lpad(i::text, 2, '0');
++    v_reg_id := pg_temp.register((select id from ev21s), v_alias, v_phone);
++    v_uid := gen_random_uuid();
++    insert into auth.users (id) values (v_uid);
++    update public.event_registrations set auth_user_id = v_uid where id = v_reg_id;
++    perform set_config('request.jwt.claim.sub', v_uid::text, true);
++    perform public.check_in_player();
++  end loop;
++end $$;
++
++select is(
++  (select count(*) from public.room_memberships where room_id = (select id from seatroom) and left_at is null),
++  14::bigint,
++  'test 43: 14 ordinary players fit in a capacity-15 room with an unfulfilled coordinator reservation');
++
++-- 15th ordinary player must wait — the reserved seat is not given away.
++select pg_temp.register((select id from ev21s), 'seatp15', '+2348052000015');
++select pg_temp.as_player(gen_random_uuid());
++update public.event_registrations set auth_user_id = (select current_setting('request.jwt.claim.sub')::uuid)
++ where alias = 'seatp15';
++select public.check_in_player();
++select is(
++  (select count(*) from public.room_memberships where room_id = (select id from seatroom) and left_at is null),
++  14::bigint,
++  'test 43: fifteenth ordinary player does not take the reserved coordinator seat');
++select is(
++  (select public.get_player_state()->>'view'),
++  'CHECKED_IN_WAITING',
++  'test 43: the fifteenth ordinary player is genuinely waiting, not errored');
++
++-- The coordinator checks in and becomes member 15, assigned directly.
++select pg_temp.as_player(gen_random_uuid());
++update public.event_registrations set auth_user_id = (select current_setting('request.jwt.claim.sub')::uuid)
++ where alias = 'seatcoord';
++select public.check_in_player();
++select is(
++  (select count(*) from public.room_memberships where room_id = (select id from seatroom) and left_at is null),
++  15::bigint,
++  'test 43: the coordinator checking in becomes member 15');
++select is(
++  (select rm.registration_id from public.room_memberships rm
++    where rm.room_id = (select id from seatroom) and rm.left_at is null
++      and rm.registration_id = (select id from event_registrations where alias = 'seatcoord')),
++  (select id from event_registrations where alias = 'seatcoord'),
++  'test 43: the coordinator is assigned directly to their own room (not queued behind ordinary fill)');
++
++-- Idempotent double check-in.
++select public.check_in_player();
++select is(
++  (select count(*) from public.room_memberships where room_id = (select id from seatroom) and registration_id = (select id from event_registrations where alias = 'seatcoord') and left_at is null),
++  1::bigint,
++  'test 43: coordinator double check-in is idempotent (still exactly one active membership)');
++
++-- ==================================================================== SEQUENTIAL FILL
++
++select pg_temp.as_staff(gen_random_uuid(), 'EVENT_ADMIN');
++
++insert into public.events (
++  slug, name, status, starts_at, timezone, timezone_label,
++  checkin_opens_at, checkin_closes_at, capacity
++) values (
++  'test-night21-seq', 'Sequential Fill Event', 'CHECK_IN',
++  now() + interval '2 hours', 'Africa/Lagos', 'WAT',
++  now() - interval '30 minutes', now() + interval '2 hours', 30
++);
++create temporary table ev21q as select id from public.events where slug = 'test-night21-seq';
++
++select pg_temp.register((select id from ev21q), 'seqcoord1', '+2348053000001');
++select pg_temp.register((select id from ev21q), 'seqcoord2', '+2348053000002');
++select public.admin_create_room('test-night21-seq', 'SEQ ROOM 01', 1,
++  (select id from public.event_registrations where alias = 'seqcoord1'));
++select public.admin_create_room('test-night21-seq', 'SEQ ROOM 02', 15,
++  (select id from public.event_registrations where alias = 'seqcoord2'));
++
++-- Room 01 capacity 1, fully reserved by its own coordinator (unchecked-in).
++-- An ordinary player must go to Room 02, never stealing Room 01's only seat.
++select pg_temp.register((select id from ev21q), 'seqp1', '+2348053000003');
++select pg_temp.as_player(gen_random_uuid());
++update public.event_registrations set auth_user_id = (select current_setting('request.jwt.claim.sub')::uuid)
++ where alias = 'seqp1';
++select public.check_in_player();
++select is(
++  (select ro.label from room_memberships rm join rooms ro on ro.id = rm.room_id
++    where rm.registration_id = (select id from event_registrations where alias = 'seqp1') and rm.left_at is null),
++  'SEQ ROOM 02',
++  'test 43: Room 01 fully reserved -> ordinary player correctly lands in Room 02, not stuck waiting for Room 01');
++
++-- Now let seqcoord1 check in, taking Room 01's only (reserved) seat.
++select pg_temp.as_player(gen_random_uuid());
++update public.event_registrations set auth_user_id = (select current_setting('request.jwt.claim.sub')::uuid)
++ where alias = 'seqcoord1';
++select public.check_in_player();
++select is(
++  (select ro.label from room_memberships rm join rooms ro on ro.id = rm.room_id
++    where rm.registration_id = (select id from event_registrations where alias = 'seqcoord1') and rm.left_at is null),
++  'SEQ ROOM 01',
++  'test 43: reservation-adjusted Room 01 (capacity 1, coordinator seat) is filled by its own coordinator, confirming it was effectively full before');
++
++select is(
++  (select count(*) from event_registrations er
++    where er.event_id = (select id from ev21q)
++      and (select count(*) from room_memberships rm where rm.registration_id = er.id and rm.left_at is null) > 1),
++  0::bigint,
++  'test 43: nobody in this event has two active memberships');
++
++select ok(
++  not exists (
++    select 1 from rooms ro
++     where ro.event_id = (select id from ev21q)
++       and (select count(*) from room_memberships rm where rm.room_id = ro.id and rm.left_at is null) > ro.capacity
++  ),
++  'test 43: no room exceeds its configured capacity');
++
++-- ==================================================================== WAITING
++
++select pg_temp.as_staff(gen_random_uuid(), 'EVENT_ADMIN');
++
++insert into public.events (
++  slug, name, status, starts_at, timezone, timezone_label,
++  checkin_opens_at, checkin_closes_at, capacity
++) values (
++  'test-night21-wait', 'Waiting Event', 'CHECK_IN',
++  now() + interval '2 hours', 'Africa/Lagos', 'WAT',
++  now() - interval '30 minutes', now() + interval '2 hours', 30
++);
++create temporary table ev21w as select id from public.events where slug = 'test-night21-wait';
++
++select pg_temp.register((select id from ev21w), 'waitcoord1', '+2348054000001');
++select public.admin_create_room('test-night21-wait', 'WAIT ROOM 01', 1,
++  (select id from public.event_registrations where alias = 'waitcoord1'));
++-- Room full (coordinator's own reserved+occupied seat via check-in below).
++select pg_temp.as_player(gen_random_uuid());
++update public.event_registrations set auth_user_id = (select current_setting('request.jwt.claim.sub')::uuid)
++ where alias = 'waitcoord1';
++select public.check_in_player();
++
++select pg_temp.register((select id from ev21w), 'waitp1', '+2348054000002');
++select pg_temp.as_player(gen_random_uuid());
++update public.event_registrations set auth_user_id = (select current_setting('request.jwt.claim.sub')::uuid)
++ where alias = 'waitp1';
++select public.check_in_player();
++select is(
++  (select public.get_player_state()->>'view'),
++  'CHECKED_IN_WAITING',
++  'test 43: when all rooms are full, a new check-in correctly becomes CHECKED_IN_WAITING');
++
++select pg_temp.register((select id from ev21w), 'waitcoord2', '+2348054000003');
++select pg_temp.as_staff(gen_random_uuid(), 'EVENT_ADMIN');
++select public.admin_create_room('test-night21-wait', 'WAIT ROOM 02', 5,
++  (select id from public.event_registrations where alias = 'waitcoord2'));
++select is(
++  (select ro.label from room_memberships rm join rooms ro on ro.id = rm.room_id
++    where rm.registration_id = (select id from event_registrations where alias = 'waitp1') and rm.left_at is null),
++  'WAIT ROOM 02',
++  'test 43: creating another staffed room assigns the waiting player in check-in order (via admin_create_room''s own call to admin_assign_waiting_players)');
++
++select pg_temp.register((select id from ev21w), 'waitp2', '+2348054000004');
++select pg_temp.as_player(gen_random_uuid());
++update public.event_registrations set auth_user_id = (select current_setting('request.jwt.claim.sub')::uuid)
++ where alias = 'waitp2';
++select public.check_in_player();
++select pg_temp.as_staff(gen_random_uuid(), 'EVENT_ADMIN');
++select public.admin_upsert_room('test-night21-wait',
++  (select id from rooms where event_id = (select id from ev21w) and label = 'WAIT ROOM 02'),
++  'WAIT ROOM 02', 6, null);
++select is(
++  (select ro.label from room_memberships rm join rooms ro on ro.id = rm.room_id
++    where rm.registration_id = (select id from event_registrations where alias = 'waitp2') and rm.left_at is null),
++  'WAIT ROOM 02',
++  'test 43: increasing a room''s capacity assigns a waiting player in check-in order');
++
++select lives_ok(
++  $$ select public.admin_assign_waiting_players('test-night21-wait') $$,
++  'test 43: retrying the allocation operation does not error');
++select is(
++  (select count(*) from event_registrations er
++    where er.event_id = (select id from ev21w)
++      and (select count(*) from room_memberships rm where rm.registration_id = er.id and rm.left_at is null) > 1),
++  0::bigint,
++  'test 43: retrying the allocation operation does not duplicate any membership');
++
++-- ==================================================================== COORDINATOR REPLACEMENT
++
++select pg_temp.as_staff(gen_random_uuid(), 'EVENT_ADMIN');
++
++insert into public.events (
++  slug, name, status, starts_at, timezone, timezone_label, capacity
++) values ('test-night21-repl', 'Replacement Event', 'REGISTRATION', now() + interval '5 days', 'Africa/Lagos', 'WAT', 30);
++create temporary table ev21r as select id from public.events where slug = 'test-night21-repl';
++
++select pg_temp.register((select id from ev21r), 'oldcoord', '+2348055000001');
++select pg_temp.register((select id from ev21r), 'newcoord', '+2348055000002');
++select public.admin_create_room('test-night21-repl', 'REPL ROOM', 5,
++  (select id from public.event_registrations where alias = 'oldcoord'));
++create temporary table replroom as select id from rooms where event_id = (select id from ev21r) and label = 'REPL ROOM';
++
++select public.admin_replace_room_coordinator('test-night21-repl', (select id from replroom),
++  (select id from event_registrations where alias = 'newcoord'));
++
++select is(
++  (select count(*) from room_coordinators where room_id = (select id from replroom) and replaced_at is null),
++  1::bigint,
++  'test 43: exactly one active coordinator remains after replacement');
++select is(
++  (select registration_id from room_coordinators where room_id = (select id from replroom) and replaced_at is null),
++  (select id from event_registrations where alias = 'newcoord'),
++  'test 43: the new coordinator is the active one');
++select isnt(
++  (select registration_id from room_coordinators where room_id = (select id from replroom) and replaced_at is null),
++  (select id from event_registrations where alias = 'oldcoord'),
++  'test 43: the old coordinator no longer receives direct assignment (no longer active)');
++select ok(
++  exists (select 1 from room_coordinators where room_id = (select id from replroom) and registration_id = (select id from event_registrations where alias = 'oldcoord') and replaced_at is not null),
++  'test 43: assignment history is preserved (old row still exists, marked replaced) — audit stays coherent');
++
++-- Old coordinator, now free, can coordinate a different room.
++select public.admin_create_room('test-night21-repl', 'REPL ROOM 2', 5,
++  (select id from public.event_registrations where alias = 'oldcoord'));
++select is(
++  (select count(*) from room_coordinators where event_id = (select id from ev21r) and registration_id = (select id from event_registrations where alias = 'oldcoord') and replaced_at is null),
++  1::bigint,
++  'test 43: the freed former coordinator can be assigned to coordinate a different room');
++
++-- ==================================================================== ROOM GAME PROGRESSION
++
++select pg_temp.register((select id from ev21), 'progcoord1', '+2348056000001');
++select pg_temp.register((select id from ev21), 'progcoord2', '+2348056000002');
++select public.admin_create_room('test-night21', 'PROG ROOM 01', 5,
++  (select id from public.event_registrations where alias = 'progcoord1'));
++select public.admin_create_room('test-night21', 'PROG ROOM 02', 5,
++  (select id from public.event_registrations where alias = 'progcoord2'));
++
++create temporary table progroom1 as select id from rooms where event_id = (select id from ev21) and label = 'PROG ROOM 01';
++create temporary table progroom2 as select id from rooms where event_id = (select id from ev21) and label = 'PROG ROOM 02';
++create temporary table game1 as select id from event_games where event_id = (select id from ev21) and position = 1;
++create temporary table game2 as select id from event_games where event_id = (select id from ev21) and position = 2;
++
++-- Authorize as admin for these (already an EVENT_ADMIN session from setup).
++select public.start_room_game((select id from progroom1), (select id from game1));
++select is(
++  (select status from room_event_games where room_id = (select id from progroom1) and event_game_id = (select id from game1)),
++  'LIVE',
++  'test 43: room 1 can start game 1');
++
++select throws_like(
++  $$ select public.start_room_game((select id from progroom1), (select id from game2)) $$,
++  'room_game_already_live%',
++  'test 43: same room cannot have two games live simultaneously');
++
++select throws_like(
++  $$ select public.start_room_game((select id from progroom2), (select id from game2)) $$,
++  'game_order_violation%',
++  'test 43: normal progression cannot skip the configured game order');
++
++select public.complete_room_game((select id from progroom1), (select id from game1));
++select public.start_room_game((select id from progroom1), (select id from game2));
++select is(
++  (select status from room_event_games where room_id = (select id from progroom1) and event_game_id = (select id from game2)),
++  'LIVE',
++  'test 43: room 1 may complete game 1 and start game 2');
++
++select public.start_room_game((select id from progroom2), (select id from game1));
++select is(
++  (select status from room_event_games where room_id = (select id from progroom2) and event_game_id = (select id from game1)),
++  'LIVE',
++  'test 43: room 2 independently remains on game 1 while room 1 is already on game 2');
++
++select ok(
++  (select started_at from room_event_games where room_id = (select id from progroom1) and event_game_id = (select id from game1)) is not null
++  and (select ended_at from room_event_games where room_id = (select id from progroom1) and event_game_id = (select id from game1)) is not null,
++  'test 43: started/ended timestamps are populated correctly for a completed room-game');
++
++-- Cross-event room/game combination rejected: game1/game2 belong to ev21,
++-- not ev21_other, and its rooms cannot reference them.
++select pg_temp.register((select id from ev21_other), 'othercoord', '+2348056000003');
++select public.admin_create_room('test-night21-other', 'OTHER ROOM', 5,
++  (select id from public.event_registrations where alias = 'othercoord'));
++select throws_ok(
++  $$ select public.start_room_game(
++       (select id from rooms where event_id = (select id from ev21_other) and label = 'OTHER ROOM'),
++       (select id from game1)
++     ) $$,
++  'P0002', null,
++  'test 43: a room cannot start a game belonging to a different event');
++
++-- ==================================================================== DURATION
++
++select lives_ok(
++  $$ select public.admin_add_event_game('test-night21-other',
++       (select id from games where slug = 'test-game21'), 1, 45) $$,
++  'test 43: positive duration accepted');
++
++select throws_like(
++  $$ select public.admin_add_event_game('test-night21-other',
++       (select id from games where slug = 'test-game21b'), 2, 0) $$,
++  'invalid_duration%',
++  'test 43: zero duration rejected');
++
++select throws_like(
++  $$ select public.admin_add_event_game('test-night21-other',
++       (select id from games where slug = 'test-game21b'), 2, -5) $$,
++  'invalid_duration%',
++  'test 43: negative duration rejected');
++
++select is(
++  (select duration_minutes from event_games where event_id = (select id from ev21_other) and position = 1),
++  45,
++  'test 43: event-game duration is exposed through the read model (event_games.duration_minutes)');
++
++-- ==================================================================== AUTHORIZATION / PRIVACY
++
++select pg_temp.as_player(gen_random_uuid());
++select throws_ok(
++  $$ select public.admin_create_room('test-night21', 'HACKED ROOM', 5, null) $$,
++  '42501', null,
++  'test 43: an ordinary player cannot perform Admin room creation');
++
++select throws_ok(
++  $$ select public.admin_replace_room_coordinator('test-night21', (select id from progroom1), null) $$,
++  '42501', null,
++  'test 43: an ordinary player cannot replace a coordinator');
++
++-- progcoord2 (an active coordinator of PROG ROOM 02) must not be able to
++-- mutate PROG ROOM 01.
++select pg_temp.as_player(gen_random_uuid());
++update public.event_registrations set auth_user_id = (select current_setting('request.jwt.claim.sub')::uuid)
++ where alias = 'progcoord2';
++select throws_like(
++  $$ select public.complete_room_game((select id from progroom1), (select id from game1)) $$,
++  'not_authorized%',
++  'test 43: a coordinator cannot mutate a different room''s game state');
++
++-- Candidate list payload must never carry phone/real name.
++select pg_temp.as_staff(gen_random_uuid(), 'EVENT_ADMIN');
++select ok(
++  not (public.admin_list_coordinator_candidates('test-night21')->0 ? 'phone'),
++  'test 43: coordinator candidate payload never carries a phone field');
++select ok(
++  not (public.admin_list_coordinator_candidates('test-night21')->0 ? 'realName'),
++  'test 43: coordinator candidate payload never carries a real name field');
++
++select * from finish();
++rollback;

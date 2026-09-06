@@ -98,9 +98,9 @@ Not started. Screens to be listed when references are supplied.
 | # | Screen | Visual | Data | Status |
 |---|---|---|---|---|
 | A01 | Event Overview | Reference supplied | Live | APPROVED (now at /admin/events/[slug]/overview — see note below) |
-| A02 | Rooms | Reference supplied | Live | APPROVED (now at /admin/events/[slug]/rooms — see note below) |
+| A02 | Rooms | Reference supplied | Live | REVIEW — was APPROVED, but Phase 6.5 changed a real form element: the coordinator field is now a candidate `<select>` (real eligible registrants) instead of a free-text staff UUID input, and room creation now requires a coordinator atomically. Overall layout/cards untouched, but re-approval is warranted since what was approved no longer matches what ships. |
 | A03 | Events list | No reference — operational tool | Live | REVIEW |
-| A04 | New Event builder | No reference — operational tool | Live | REVIEW |
+| A04 | New Event builder | No reference — operational tool | Live | REVIEW — Phase 6.5 removed the ROOMS configuration step from this wizard entirely (see docs/ROADMAP.md's Phase 6.5 entry for why: no registrant can exist yet to choose as coordinator at event-creation time). Rooms are now configured exclusively on the Rooms page (A02). |
 
 A01/A02 moved from fixed routes (`/admin/overview`, `/admin/rooms`) to
 event-scoped routes (`/admin/events/[slug]/overview`, `/admin/events/[slug]/rooms`)
