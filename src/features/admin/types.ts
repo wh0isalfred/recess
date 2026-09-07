@@ -22,8 +22,13 @@ export type AdminRoom = {
   capacity: number | null;
   whatsappGroupUrl: string | null;
   occupancy: number;
-  coordinator: { userId: string; name: string } | null;
+  coordinator: { registrationId: string; alias: string; playerNumber: number; checkedInAt: string | null } | null;
 };
+
+/** A registration eligible to become a room's coordinator — see
+ * admin_list_coordinator_candidates() (migration 0021). Never carries phone
+ * or real name; alias/player number are enough for identification. */
+export type CoordinatorCandidate = { registrationId: string; alias: string; playerNumber: number };
 
 export type WaitingPlayer = { alias: string; playerNumber: number; checkedInAt: string };
 

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   AdminResult,
   AdminRoom,
+  CoordinatorCandidate,
   EventDetail,
   EventListItem,
   EventOverview,
@@ -71,16 +72,31 @@ function mapError(message: string): { code: string; message: string } {
     event_not_found: "That event doesn't exist.",
     room_not_found: "That room doesn't exist.",
     game_not_found: "That game isn't in the library.",
+    event_game_not_found: "That game isn't configured for this event.",
     invalid_label: "Enter a room label.",
-    invalid_capacity: "Capacity must be a positive number.",
+    invalid_capacity: "Capacity must be between 1 and 15.",
     invalid_whatsapp_url: "That doesn't look like a WhatsApp group link.",
     invalid_staff: "That person isn't set up as staff yet.",
     invalid_name: "Enter an event name.",
     invalid_slug: "Enter an event slug.",
     invalid_position: "Something went wrong ordering the games — try again.",
     invalid_event: "Check the event details — a date, window or link looks wrong.",
+    invalid_duration: "Duration must be a positive number of minutes.",
     slug_taken: "An event with that URL slug already exists.",
     game_already_added: "That game is already in this event.",
+    coordinator_required: "Choose a coordinator to create this room.",
+    coordinator_wrong_event: "That player isn't registered for this event.",
+    coordinator_waitlisted: "A waitlisted player can't coordinate a room.",
+    coordinator_cancelled: "A cancelled registration can't coordinate a room.",
+    coordinator_checked_in: "That player has already checked in — coordinators must be chosen before they check in.",
+    coordinator_no_session: "That player doesn't have a valid session yet.",
+    coordinator_already_assigned: "That player is already coordinating another room.",
+    use_admin_create_room: "Use \u201cAdd room\u201d to create a new room — editing a room can't create one.",
+    capacity_below_active: "Capacity can't go below the players (and reserved coordinator seat) already in that room.",
+    room_game_already_live: "This room already has a different game live.",
+    game_order_violation: "The previous configured game must be completed first for this room.",
+    room_game_not_found: "This room hasn't started that game yet.",
+    room_game_not_live: "This room's game isn't currently live.",
   };
   return { code: code ?? "unknown", message: FRIENDLY[code ?? ""] ?? GENERIC };
 }
@@ -145,11 +161,13 @@ export async function addEventGame(
   eventSlug: string,
   gameId: string,
   position: number,
-): Promise<AdminResult<{ id: string; gameSlug: string; position: number }>> {
+  durationMinutes: number | null = null,
+): Promise<AdminResult<{ id: string; gameSlug: string; position: number; durationMinutes: number | null }>> {
   return callAdminRpc("admin_add_event_game", {
     p_event_slug: eventSlug,
     p_game_id: gameId,
     p_position: position,
+    p_duration_minutes: durationMinutes,
   });
 }
 
@@ -163,9 +181,30 @@ export async function fetchRoomsOverview(slug: string): Promise<AdminResult<Room
   return callAdminRpc<RoomsOverview>("admin_list_rooms", { p_event_slug: slug });
 }
 
+/**
+ * Room creation — Phase 6.5's admin_create_room (migration 0021). The only
+ * way a room comes into existence now: atomic with a real, eligible
+ * registrant coordinator. upsertRoom below no longer creates rooms at all —
+ * calling it with roomId null now fails server-side with
+ * use_admin_create_room, not silently doing the wrong thing.
+ */
+export async function createRoom(
+  eventSlug: string,
+  input: { label: string; capacity: number; coordinatorRegistrationId: string; whatsappGroupUrl: string | null },
+): Promise<AdminResult<{ roomId: string; label: string }>> {
+  return callAdminRpc("admin_create_room", {
+    p_event_slug: eventSlug,
+    p_label: input.label,
+    p_capacity: input.capacity,
+    p_coordinator_registration_id: input.coordinatorRegistrationId,
+    p_whatsapp_group_url: input.whatsappGroupUrl,
+  });
+}
+
+/** Edit-only now — see createRoom above for how a room is actually created. */
 export async function upsertRoom(
   eventSlug: string,
-  input: { roomId: string | null; label: string; capacity: number | null; whatsappGroupUrl: string | null },
+  input: { roomId: string; label: string; capacity: number | null; whatsappGroupUrl: string | null },
 ): Promise<AdminResult<AdminRoom>> {
   return callAdminRpc<AdminRoom>("admin_upsert_room", {
     p_event_slug: eventSlug,
@@ -176,15 +215,26 @@ export async function upsertRoom(
   });
 }
 
-export async function assignCoordinator(
+/**
+ * Eligible candidates for a NEW coordinator assignment: registered for this
+ * event, not waitlisted/cancelled, not yet checked in, not already
+ * coordinating another room. alias/player number only — see
+ * admin_list_coordinator_candidates() (migration 0021) for why phone/real
+ * name never leave the database for this read.
+ */
+export async function fetchCoordinatorCandidates(eventSlug: string): Promise<AdminResult<CoordinatorCandidate[]>> {
+  return callAdminRpc<CoordinatorCandidate[]>("admin_list_coordinator_candidates", { p_event_slug: eventSlug });
+}
+
+export async function replaceCoordinator(
   eventSlug: string,
   roomId: string,
-  userId: string | null,
-): Promise<AdminResult<{ roomId: string; coordinatorUserId: string | null }>> {
-  return callAdminRpc("admin_assign_coordinator", {
+  newCoordinatorRegistrationId: string,
+): Promise<AdminResult<{ roomId: string; coordinatorRegistrationId: string }>> {
+  return callAdminRpc("admin_replace_room_coordinator", {
     p_event_slug: eventSlug,
     p_room_id: roomId,
-    p_user_id: userId,
+    p_new_registration_id: newCoordinatorRegistrationId,
   });
 }
 
