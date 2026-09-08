@@ -411,6 +411,12 @@ select throws_like(
   'game_order_violation%',
   'test 43: normal progression cannot skip the configured game order');
 
+select public.start_round((select id from progroom1), (select id from game1));
+select public.submit_round_result(
+  (select id from rounds where room_id = (select id from progroom1) and event_game_id = (select id from game1) and round_index = 1),
+  jsonb_build_object('scores', '[]'::jsonb),
+  'idem-test43-progroom1-g1-0001'
+);
 select public.complete_room_game((select id from progroom1), (select id from game1));
 select public.start_room_game((select id from progroom1), (select id from game2));
 select is(

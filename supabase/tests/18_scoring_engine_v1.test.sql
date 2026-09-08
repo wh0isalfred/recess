@@ -136,8 +136,34 @@ select is(
   1::bigint,
   'test 47: no duplicate result rows were created by the repeated submissions');
 
--- Room 1 can only have one game LIVE at a time (Phase 6.5) — complete
--- auGame here before skribblGame can start in the same room.
+-- Room 1 can only have one game LIVE at a time (Phase 6.5), and
+-- complete_room_game() now requires the configured round count to be
+-- genuinely reached (Phase 7.2) — reach it here with two additional
+-- all-DNP rounds (nobody shows up), which contribute zero to every
+-- player's raw total and therefore leave the settlement assertions later
+-- in this file undisturbed.
+select public.start_round((select id from scoreRoom1), (select id from auGame));
+select public.submit_round_result(
+  (select id from rounds where room_id=(select id from scoreRoom1) and event_game_id=(select id from auGame) and round_index=2),
+  jsonb_build_object('winningRole','crewmate','participants', jsonb_build_array(
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='p1'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='p2'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='p3'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='p4'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='late1'),'participation','DNP')
+  )), 'idem-au-room1-round2-dnp-0001'
+);
+select public.start_round((select id from scoreRoom1), (select id from auGame));
+select public.submit_round_result(
+  (select id from rounds where room_id=(select id from scoreRoom1) and event_game_id=(select id from auGame) and round_index=3),
+  jsonb_build_object('winningRole','crewmate','participants', jsonb_build_array(
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='p1'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='p2'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='p3'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='p4'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='late1'),'participation','DNP')
+  )), 'idem-au-room1-round3-dnp-0001'
+);
 select public.complete_room_game((select id from scoreRoom1), (select id from auGame));
 
 -- ==================================================================== INVALID PARTICIPANT
@@ -254,6 +280,18 @@ select public.submit_round_result(
     jsonb_build_object('registrationId',(select id from event_registrations where alias='scorecoord2'),'participation','DNP')
   )), 'idem-auround2-2-0001'
 );
+-- A third, all-DNP round to reach auGame's planned_rounds=3 — contributes
+-- zero to any total, leaving the correction-section assertions below
+-- (which depend only on rounds 1 and 2) unaffected.
+select public.start_round((select id from scoreRoom2), (select id from auGame));
+select public.submit_round_result(
+  (select id from rounds where room_id=(select id from scoreRoom2) and event_game_id=(select id from auGame) and round_index=3),
+  jsonb_build_object('winningRole','crewmate','participants', jsonb_build_array(
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='q1'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='q2'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='scorecoord2'),'participation','DNP')
+  )), 'idem-auround2-3-dnp-0001'
+);
 select public.complete_room_game((select id from scoreRoom2), (select id from auGame));
 
 select is(
@@ -271,14 +309,21 @@ create temporary table pre_correction_txn as
      and voided_at is null;
 
 -- Correct round 1: q1 was actually crewmate the whole time, not impostor.
-select public.submit_round_result(
+-- Phase 7.2: a confirmed result can no longer be corrected directly via
+-- submit_round_result() — this goes through request + Admin approval.
+select public.request_result_correction(
   (select id from auRound2_1),
   jsonb_build_object('winningRole','crewmate','participants', jsonb_build_array(
     jsonb_build_object('registrationId',(select id from event_registrations where alias='q1'),'participation','PARTICIPATING','role','crewmate'),
     jsonb_build_object('registrationId',(select id from event_registrations where alias='q2'),'participation','PARTICIPATING','role','crewmate'),
     jsonb_build_object('registrationId',(select id from event_registrations where alias='scorecoord2'),'participation','DNP')
-  )), 'idem-auround2-1-CORRECTED'
+  )),
+  'q1 was actually crewmate the whole round, not impostor'
 );
+select public.admin_approve_correction(
+  (select id from correction_requests where round_id = (select id from auRound2_1) and status = 'PENDING')
+);
+
 select is(
   (select count(*) from results where round_id=(select id from auRound2_1)),
   2::bigint,

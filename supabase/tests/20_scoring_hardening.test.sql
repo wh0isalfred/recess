@@ -172,11 +172,35 @@ create temporary table tvGame27 as select id from event_games where event_id=(se
 
 -- Phase 6.5's game order is enforced per-room: hroom2 must complete
 -- positions 1 and 2 for itself (never having played either) before
--- starting position 3 — no rounds are needed to satisfy this, just the
--- room-game lifecycle itself.
+-- starting position 3. Phase 7.2's completion gate now also requires
+-- genuinely reaching the configured round count or an expired window —
+-- "no rounds needed" no longer holds, so this reaches each condition the
+-- cheapest legitimate way available: two real (all-DNP, contributing
+-- nothing to anyone's total) rounds for auGame27's planned_rounds=2, and
+-- an expired window for skGame27 rather than playing all 5 of its planned
+-- rounds just to satisfy room ordering.
 select public.start_room_game((select id from hroom2), (select id from auGame27));
+select public.start_round((select id from hroom2), (select id from auGame27));
+select public.submit_round_result(
+  (select id from rounds where room_id=(select id from hroom2) and event_game_id=(select id from auGame27) and round_index=1),
+  jsonb_build_object('winningRole','crewmate','participants', jsonb_build_array(
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='h3'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='h4'),'participation','DNP')
+  )), 'idem-hroom2-au-r1-dnp-0001'
+);
+select public.start_round((select id from hroom2), (select id from auGame27));
+select public.submit_round_result(
+  (select id from rounds where room_id=(select id from hroom2) and event_game_id=(select id from auGame27) and round_index=2),
+  jsonb_build_object('winningRole','crewmate','participants', jsonb_build_array(
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='h3'),'participation','DNP'),
+    jsonb_build_object('registrationId',(select id from event_registrations where alias='h4'),'participation','DNP')
+  )), 'idem-hroom2-au-r2-dnp-0001'
+);
 select public.complete_room_game((select id from hroom2), (select id from auGame27));
+
 select public.start_room_game((select id from hroom2), (select id from skGame27));
+update room_event_games set started_at = now() - interval '999 hours'
+ where room_id = (select id from hroom2) and event_game_id = (select id from skGame27);
 select public.complete_room_game((select id from hroom2), (select id from skGame27));
 
 select public.start_room_game((select id from hroom2), (select id from tvGame27));
