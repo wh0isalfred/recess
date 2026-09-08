@@ -87,7 +87,36 @@ function toRegistrationState(state: PlayerState): RegistrationState {
  * this), so it was genuinely dead code, not just superseded — see the
  * delivery report.
  */
+import Link from "next/link";
+
+/**
+ * A small, persistent entry point to /coordinate — shown on top of
+ * whichever view the player is otherwise seeing, since a coordinator is
+ * still a normal player first (EVENT-OPS.md §1) and may be mid-Pass-
+ * countdown, checked in, or anything else when they're assigned. Nothing
+ * here is the authorization boundary — that's coordinator_room_state()
+ * and every mutating RPC it fronts; this is only "is there a reason to
+ * show this link at all."
+ */
+function CoordinatorBanner({ state }: { state: PlayerState }) {
+  if (!state.coordinating) return null;
+  return (
+    <Link href="/coordinate" className="rc-coord-entry-banner">
+      COORDINATING {state.coordinating.roomLabel} — GO TO ROOM →
+    </Link>
+  );
+}
+
 export function PassScreen({ state }: { state: PlayerState }) {
+  return (
+    <>
+      <CoordinatorBanner state={state} />
+      <PassScreenBody state={state} />
+    </>
+  );
+}
+
+function PassScreenBody({ state }: { state: PlayerState }) {
   if (state.view === "WAITLISTED") {
     return (
       <Surface as="main" ground="night" grain="low" className="rc-pass">

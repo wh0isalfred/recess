@@ -1,0 +1,412 @@
+/* ===========================================================================
+   Coordinator experience (Phase 8) — /coordinate.
+
+   Nests inside <Surface ground="night">, so --ground/--fg/--accent/--go/
+   --warn/--alert already resolve to their night-ground values (tokens.css).
+   Nothing here redefines a color; everything reads the semantic tokens so
+   this stays a RECESS screen, not a bolted-on admin panel with a dark
+   background slapped on.
+   =========================================================================== */
+
+@layer components {
+  .rc-coord-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    max-width: 30rem;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem calc(2rem + env(safe-area-inset-bottom));
+    min-height: 100dvh;
+  }
+
+  .rc-coord-loading,
+  .rc-coord-done-copy {
+    font-size: var(--text-rc-base);
+    color: var(--fg-soft);
+  }
+
+  .rc-coord-error {
+    padding: 0.75rem 1rem;
+    border-radius: var(--r-surface);
+    background: color-mix(in oklab, var(--alert) 16%, transparent);
+    color: var(--alert);
+    font-size: var(--text-rc-sm);
+    font-weight: 600;
+  }
+
+  /* ------------------------------------------------------------------ header */
+
+  .rc-coord-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-top: 0.5rem;
+  }
+  .rc-coord-room-label {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-2xl);
+    line-height: var(--text-rc-2xl--line-height);
+    color: var(--fg);
+    letter-spacing: -0.01em;
+  }
+  .rc-coord-occupancy {
+    font-size: var(--text-rc-md);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+  }
+
+  /* -------------------------------------------------------------------- card */
+
+  .rc-coord-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-radius: var(--r-surface);
+    background: color-mix(in oklab, var(--ground-lift) 60%, transparent);
+    border: var(--hairline) solid color-mix(in oklab, var(--fg) 14%, transparent);
+  }
+  .rc-coord-card--done {
+    align-items: center;
+    text-align: center;
+    padding: 3rem 1.5rem;
+  }
+
+  .rc-coord-game-name {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-xl);
+    line-height: var(--text-rc-xl--line-height);
+    color: var(--fg);
+  }
+  .rc-coord-get-ready {
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--fg-soft);
+  }
+  .rc-coord-round-progress {
+    font-size: var(--text-rc-lg);
+    font-weight: 700;
+    color: var(--fg);
+  }
+
+  .rc-coord-timer {
+    font-size: var(--text-rc-md);
+    font-weight: 700;
+    color: var(--go);
+  }
+  .rc-coord-timer--expired { color: var(--alert); }
+  .rc-coord-timer--none { color: var(--fg-soft); font-weight: 500; }
+
+  /* ------------------------------------------------------------------ roster */
+
+  .rc-coord-roster {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .rc-coord-roster-chip {
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--r-pill);
+    background: color-mix(in oklab, var(--fg) 10%, transparent);
+    color: var(--fg);
+    font-size: var(--text-rc-sm);
+  }
+
+  /* ------------------------------------------------------------------ buttons */
+
+  .rc-coord-btn-primary,
+  .rc-coord-btn-secondary,
+  .rc-coord-btn-ghost {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--rc-tap);
+    width: 100%;
+    padding: 0 1.5rem;
+    border-radius: var(--r-control);
+    font-size: var(--text-rc-md);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    border: none;
+  }
+  .rc-coord-btn-primary {
+    background: var(--pink);
+    color: var(--paper);
+  }
+  .rc-coord-btn-primary:disabled {
+    background: color-mix(in oklab, var(--fg) 20%, transparent);
+    color: var(--fg-soft);
+    cursor: not-allowed;
+  }
+  .rc-coord-btn-secondary {
+    background: transparent;
+    border: 2px solid var(--fg-soft);
+    color: var(--fg);
+  }
+  .rc-coord-btn-ghost {
+    background: transparent;
+    color: var(--fg-soft);
+    font-weight: 600;
+    font-size: var(--text-rc-sm);
+    min-height: var(--rc-tap-sm);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .rc-coord-hint {
+    font-size: var(--text-rc-xs);
+    color: var(--fg-soft);
+    line-height: 1.5;
+  }
+
+  /* ------------------------------------------------------------- result entry */
+
+  .rc-coord-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+  .rc-coord-field-legend {
+    font-size: var(--text-rc-sm);
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: var(--fg);
+    padding: 0;
+    margin-bottom: 0.25rem;
+  }
+
+  .rc-coord-check-row,
+  .rc-coord-role-row,
+  .rc-coord-score-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: var(--rc-tap-sm);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--r-control);
+    background: color-mix(in oklab, var(--fg) 6%, transparent);
+    font-size: var(--text-rc-base);
+    color: var(--fg);
+  }
+  .rc-coord-check-row--dnp,
+  .rc-coord-role-row:has(.rc-coord-dnp-label),
+  .rc-coord-score-row:has(.rc-coord-dnp-label) {
+    opacity: 0.55;
+  }
+  .rc-coord-check-row input[type="checkbox"] {
+    width: 1.5rem;
+    height: 1.5rem;
+    accent-color: var(--pink);
+  }
+  .rc-coord-check-row span:nth-of-type(1),
+  .rc-coord-role-row > span:first-child,
+  .rc-coord-score-row > span:first-child {
+    flex: 1 1 auto;
+    font-weight: 600;
+  }
+
+  .rc-coord-role-row select,
+  .rc-coord-score-row input[type="number"] {
+    min-height: var(--rc-tap-sm);
+    min-width: 6rem;
+    padding: 0 0.75rem;
+    border-radius: var(--r-control);
+    border: var(--hairline) solid color-mix(in oklab, var(--fg) 25%, transparent);
+    background: var(--ground);
+    color: var(--fg);
+    font-size: var(--text-rc-base);
+  }
+
+  .rc-coord-dnp-label {
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: var(--alert);
+  }
+  .rc-coord-dnp-toggle {
+    margin-left: auto;
+    padding: 0.375rem 0.625rem;
+    border-radius: var(--r-pill);
+    border: var(--hairline) solid color-mix(in oklab, var(--fg) 30%, transparent);
+    background: transparent;
+    color: var(--fg-soft);
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .rc-coord-winner-toggle {
+    display: flex;
+    gap: 0.75rem;
+  }
+  .rc-coord-winner-btn {
+    flex: 1 1 0;
+    min-height: var(--rc-tap);
+    border-radius: var(--r-control);
+    border: 2px solid color-mix(in oklab, var(--fg) 30%, transparent);
+    background: transparent;
+    color: var(--fg);
+    font-size: var(--text-rc-base);
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .rc-coord-winner-btn--active {
+    background: var(--pink);
+    border-color: var(--pink);
+    color: var(--paper);
+  }
+
+  /* ---------------------------------------------------------------- preview */
+
+  .rc-coord-preview-title {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-lg);
+    color: var(--fg);
+  }
+  .rc-coord-preview-winner {
+    font-size: var(--text-rc-md);
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .rc-coord-preview-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+  .rc-coord-preview-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--r-control);
+    background: color-mix(in oklab, var(--fg) 6%, transparent);
+  }
+  .rc-coord-preview-alias { font-weight: 600; color: var(--fg); }
+  .rc-coord-preview-fact { font-weight: 800; color: var(--fg-soft); }
+  .rc-coord-preview-actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+  .rc-coord-preview-actions .rc-coord-btn-ghost { flex: 0 0 auto; width: auto; padding: 0 1rem; }
+  .rc-coord-preview-actions .rc-coord-btn-primary { flex: 1 1 auto; }
+
+  /* ---------------------------------------------------------- submit states */
+
+  .rc-coord-submitting {
+    font-size: var(--text-rc-lg);
+    font-weight: 800;
+    color: var(--fg-soft);
+    text-align: center;
+    padding: 2rem 0;
+  }
+  .rc-coord-confirmed {
+    font-size: var(--text-rc-lg);
+    font-weight: 800;
+    color: var(--go);
+    text-align: center;
+  }
+  .rc-coord-not-sent {
+    font-size: var(--text-rc-lg);
+    font-weight: 800;
+    color: var(--alert);
+    text-align: center;
+  }
+  .rc-coord-not-sent-copy {
+    font-size: var(--text-rc-sm);
+    color: var(--fg-soft);
+    text-align: center;
+  }
+
+  /* -------------------------------------------------------------- correction */
+
+  .rc-coord-pending {
+    font-size: var(--text-rc-lg);
+    font-weight: 800;
+    color: var(--warn);
+    text-align: center;
+  }
+  .rc-coord-reason-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    color: var(--fg);
+  }
+  .rc-coord-reason-field textarea {
+    border-radius: var(--r-control);
+    border: var(--hairline) solid color-mix(in oklab, var(--fg) 25%, transparent);
+    background: var(--ground);
+    color: var(--fg);
+    padding: 0.625rem 0.75rem;
+    font-size: var(--text-rc-base);
+    font-weight: 400;
+    resize: vertical;
+  }
+
+  /* --------------------------------------------------------------- standings */
+
+  .rc-coord-standings {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .rc-coord-standings-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--r-control);
+    background: color-mix(in oklab, var(--fg) 6%, transparent);
+  }
+  .rc-coord-standings-placement {
+    font-size: var(--text-rc-lg);
+    font-weight: 800;
+    color: var(--accent);
+    min-width: 2rem;
+  }
+  .rc-coord-standings-alias { flex: 1 1 auto; font-weight: 600; color: var(--fg); }
+  .rc-coord-standings-points { font-weight: 800; color: var(--fg); }
+  .rc-coord-standings-qualifies {
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--r-pill);
+    background: var(--go);
+    color: var(--aubergine);
+    font-size: var(--text-rc-xs);
+    font-weight: 800;
+  }
+
+  /* --------------------------------------------------- entry banner (on /pass) */
+
+  .rc-coord-entry-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: var(--rc-tap-sm);
+    padding: 0.625rem 1rem;
+    background: var(--pink);
+    color: var(--paper);
+    font-size: var(--text-rc-sm);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-align: center;
+    text-decoration: none;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+}

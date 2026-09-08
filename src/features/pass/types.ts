@@ -92,6 +92,15 @@ export type PlayerState = {
     avatars: { alias: string; avatarColor: string }[];
     previewAliases: string[];
   };
+  /**
+   * Present regardless of `view` — a coordinator is still a normal player
+   * first (EVENT-OPS.md §1). Null when the current registration is not an
+   * active coordinator of any room. This is a UI signal for whether to
+   * show an entry point to /coordinate — the actual authorization for
+   * every coordinator action is enforced server-side on each call, not by
+   * this field. Migration 0029.
+   */
+  coordinating?: { roomId: string; roomLabel: string } | null;
 };
 
 export type CheckInResult =
