@@ -507,16 +507,40 @@ The software failing must not end RECESS the event.
 
 Room competition produces the players who qualify for the championship stage.
 
-For RECESS #1, the current intended default is the top 3 positions from each
-room.
+RECESS #1 qualifies positions 1 and 2 from every room.
 
-If a tie touches the qualification boundary, every player tied at that
-position qualifies.
+If a tie touches 2nd, everybody tied at that position qualifies — nobody is
+bumped out to make room for the other, and no tiebreak is secretly applied.
 
-The number of qualification positions should remain configurable because the
-number of rooms may change.
+The number of qualification positions should remain architecturally
+configurable even though RECESS #1 uses 2 — the number of rooms (and
+therefore how many total finalists that implies) may change between
+editions.
 
-The exact championship game and final winner mechanism are intentionally not
-locked in this document yet.
+### The finale
 
-Room-phase scoring must work independently of that later decision.
+The championship finale game is Trivia.
+
+Every qualifier from every room plays together in one finalist pool,
+regardless of which room they qualified from.
+
+A finalist's room-phase RECESS championship total carries over — it is not
+discarded or reset to zero for the finale.
+
+The finale Trivia session is scored the same way a room-phase placement
+game is (SCORING.md §3, §7): raw scores, competition ranking, then that
+ranking normalized onto the RECESS 0–20 scale — awarding another normalized
+maximum of 20 RECESS points, with N being the size of the finalist pool,
+not a single room's roster.
+
+Final cumulative total = room-phase RECESS total + finale Trivia points.
+
+The player with the highest final cumulative total is the RECESS champion.
+
+Exact champion-tie behavior — what happens if two or more finalists share
+the single highest final cumulative total — remains unresolved and must not
+be invented. Every other tie in this document uses competition ranking with
+no hidden tiebreaker; whether the champion tie follows that same pattern or
+is resolved some other way is a real decision RECESS has not yet made.
+
+Room-phase scoring must work independently of that decision.

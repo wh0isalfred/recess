@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { EventOverview } from "@/features/admin/types";
 import { formatEventDate, formatEventTime } from "@/features/registration/calendar";
 import { LifecycleButton } from "./LifecycleButton";
@@ -39,9 +40,9 @@ export function OverviewView({ slug, data }: { slug: string; data: EventOverview
         </div>
         <div className="rc-admin-header-actions">
           <span className="rc-admin-status-chip">{event.status.replace("_", " ")}</span>
-          <button type="button" className="rc-admin-manage-btn" disabled title="Full event settings — later phase">
+          <Link href={`/admin/events/${slug}/manage`} className="rc-admin-manage-btn">
             MANAGE EVENT
-          </button>
+          </Link>
         </div>
       </header>
 

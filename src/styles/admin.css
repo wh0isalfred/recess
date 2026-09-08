@@ -181,6 +181,9 @@
 
   .rc-admin-manage-btn,
   .rc-admin-add-room {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-height: 2.5rem;
     padding: 0 1rem;
     border: 0;
@@ -190,6 +193,7 @@
     font-size: var(--text-rc-sm);
     font-weight: 700;
     letter-spacing: 0.03em;
+    text-decoration: none;
     cursor: pointer;
   }
   .rc-admin-manage-btn:disabled { background: var(--fg-muted); cursor: not-allowed; }
@@ -623,5 +627,67 @@
 
   @media (max-width: 48rem) {
     .rc-admin-builder-grid { grid-template-columns: 1fr; }
+  }
+}
+
+@layer components {
+  /* ---------------------------------------------------- Manage Event page */
+
+  .rc-admin-manage-game-list { display: flex; flex-direction: column; gap: 0.625rem; }
+  .rc-admin-manage-game-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 0.875rem;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: 0.5rem;
+    background: var(--paper);
+  }
+  .rc-admin-manage-game-name { font-size: var(--text-rc-sm); font-weight: 700; flex: 1 1 auto; min-width: 8rem; }
+
+  /* ------------------------------------------------------------ Danger Zone */
+
+  .rc-admin-danger-zone {
+    border: var(--hairline) solid var(--alert);
+    background: var(--alert-wash);
+  }
+  .rc-admin-danger-zone .rc-admin-card-title { color: var(--alert); }
+
+  .rc-admin-danger-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.5rem;
+    padding: 0 1.125rem;
+    border: var(--hairline) solid var(--alert);
+    border-radius: 0.5rem;
+    background: var(--paper);
+    color: var(--alert);
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+  .rc-admin-danger-btn:hover { background: var(--alert); color: var(--paper); }
+  .rc-admin-danger-btn:disabled { opacity: 0.5; cursor: not-allowed; background: var(--paper); color: var(--alert); }
+
+  .rc-admin-danger-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: var(--hairline) solid var(--alert);
+  }
+  .rc-admin-danger-actions { display: flex; gap: 0.625rem; }
+  .rc-admin-danger-slug-input {
+    min-height: 2.5rem;
+    padding: 0 0.75rem;
+    border: var(--hairline) solid var(--alert);
+    border-radius: 0.5rem;
+    background: var(--paper);
+    font-size: var(--text-rc-sm);
+    color: var(--ink);
   }
 }

@@ -6,6 +6,7 @@ import type {
   AdminRoom,
   CoordinatorCandidate,
   EventDetail,
+  EventGameConfig,
   EventListItem,
   EventOverview,
   GameLibraryEntry,
@@ -98,6 +99,8 @@ function mapError(message: string): { code: string; message: string } {
     game_order_violation: "The previous configured game must be completed first for this room.",
     room_game_not_found: "This room hasn't started that game yet.",
     room_game_not_live: "This room's game isn't currently live.",
+    unsafe_lifecycle_state: "Only Draft, Registration or Registration Closed events can be permanently deleted — cancel this event instead.",
+    players_checked_in: "People have already checked in — this event can't be permanently deleted. Cancel it instead.",
   };
   return { code: code ?? "unknown", message: FRIENDLY[code ?? ""] ?? GENERIC };
 }
@@ -185,6 +188,26 @@ export async function updateEventGame(
     p_duration_minutes: input.durationMinutes ?? null,
     p_planned_rounds: input.plannedRounds ?? null,
   });
+}
+
+/** The full per-event-game list (duration/rounds included) for the Manage
+ * Event page — admin_event_overview()'s own `nextGame` is a single-game
+ * dashboard summary, not this. */
+export async function fetchEventGames(eventSlug: string): Promise<AdminResult<EventGameConfig[]>> {
+  return callAdminRpc<EventGameConfig[]>("admin_list_event_games", { p_event_slug: eventSlug });
+}
+
+/**
+ * Permanently deletes a pre-event-state (DRAFT/REGISTRATION/
+ * REGISTRATION_CLOSED) event with no checked-in players — SUPER_ADMIN only.
+ * Distinct from the unrelated, unchanged, DRAFT-only admin_delete_event();
+ * see migration 0024's own comment for why these are two separately named
+ * functions rather than one broadened contract.
+ */
+export async function purgePreEventEvent(
+  eventSlug: string,
+): Promise<AdminResult<{ slug: string; purged: boolean; registrationsRemoved?: number; alreadyDeleted?: boolean }>> {
+  return callAdminRpc("admin_purge_pre_event", { p_event_slug: eventSlug });
 }
 
 // -------------------------------------------------------------- per-event ops

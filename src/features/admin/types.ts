@@ -73,4 +73,16 @@ export type GameLibraryEntry = {
   defaultDurationMinutes: number | null;
 };
 
+/** One row of admin_list_event_games() — the Manage Event page's full
+ * per-event-game configuration list, distinct from EventOverview's single
+ * `nextGame` dashboard summary. */
+export type EventGameConfig = {
+  id: string;
+  gameSlug: string;
+  gameName: string;
+  position: number;
+  durationMinutes: number | null;
+  plannedRounds: number;
+};
+
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; code: string; message: string };
