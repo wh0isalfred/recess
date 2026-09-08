@@ -30,46 +30,25 @@ insert into public.games (
      'impostor', jsonb_build_object('min', 1, 'max', 3)
    ),
    'awards', jsonb_build_object(
-     'crewmate', jsonb_build_object('win', 2, 'loss', 0),
-     'impostor', jsonb_build_object('win', 4, 'loss', 0)
+     'crewmate', jsonb_build_object('win', 1, 'loss', 0),
+     'impostor', jsonb_build_object('win', 2, 'loss', 0)
    )
  )),
 
 ('skribbl', 'Skribbl',
  'Draw and guess. Placement by score at the end of the lobby.',
  'BROWSER', 'https://skribbl.io', false, 2, 20, 'PLACEMENT', 1,
- jsonb_build_object(
-   'type', 'placement',
-   '_status', 'PLACEHOLDER — not approved RECESS #1 scoring. See ROADMAP Phase 7.',
-   'bands', jsonb_build_array(
-     jsonb_build_object('from',1,'to',1,'points',10),
-     jsonb_build_object('from',2,'to',2,'points',7),
-     jsonb_build_object('from',3,'to',3,'points',5),
-     jsonb_build_object('from',4,'to',4,'points',3),
-     jsonb_build_object('from',5,'to',5,'points',2),
-     jsonb_build_object('from',6,'to',10,'points',1)
-   ),
-   'unplaced_points', 0,
-   'tie_rule', 'SHARED_POSITION'
- )),
+ -- Resolved in Phase 7: PLACEMENT no longer uses per-game point bands.
+ -- Every game's final ranking normalizes onto the same 0-20 scale via one
+ -- universal formula (SCORING.md §3), so there is nothing game-specific
+ -- left to configure beyond naming the template — which transition_event()
+ -- (0012) already requires to be non-empty before check-in can open.
+ jsonb_build_object('type', 'placement')),
 
 ('trivia', 'Trivia',
  'Kahoot-style. Everyone reunites for the finale.',
  'BROWSER', 'https://kahoot.it', false, 2, 60, 'PLACEMENT', 1,
- jsonb_build_object(
-   'type', 'placement',
-   '_status', 'PLACEHOLDER — not approved RECESS #1 scoring. See ROADMAP Phase 7.',
-   'bands', jsonb_build_array(
-     jsonb_build_object('from',1,'to',1,'points',10),
-     jsonb_build_object('from',2,'to',2,'points',7),
-     jsonb_build_object('from',3,'to',3,'points',5),
-     jsonb_build_object('from',4,'to',4,'points',3),
-     jsonb_build_object('from',5,'to',5,'points',2),
-     jsonb_build_object('from',6,'to',10,'points',1)
-   ),
-   'unplaced_points', 0,
-   'tie_rule', 'SHARED_POSITION'
- ))
+ jsonb_build_object('type', 'placement'))
 on conflict (slug) do nothing;
 
 -- ---------------------------------------------------------- the edition

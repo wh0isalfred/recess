@@ -314,111 +314,141 @@ The React app renders whichever view comes back. It contains no rules about whic
 
 ## 3. Scoring engine
 
-### 3.1 Templates and config shapes
+**This section describes what Phase 7 actually built.** An earlier draft of
+this section (fixed per-position point bands for PLACEMENT, Among Us at
+crewmate +2/impostor +4, point transactions written per round) predates the
+locked RECESS #1 rules in `docs/SCORING.md` and no longer matches either
+that document or the implementation below — the numbers and the mutation
+shape it described were both superseded before Phase 7 began.
 
-**PLACEMENT** — Skribbl, trivia, Monopoly, anything ranked.
+### 3.1 The three layers map onto existing objects
 
-```json
-{
-  "type": "placement",
-  "bands": [
-    { "from": 1, "to": 1, "points": 10 },
-    { "from": 2, "to": 2, "points": 7 },
-    { "from": 3, "to": 3, "points": 5 },
-    { "from": 4, "to": 4, "points": 3 },
-    { "from": 5, "to": 5, "points": 2 },
-    { "from": 6, "to": 10, "points": 1 }
-  ],
-  "unplaced_points": 0,
-  "tie_rule": "SHARED_POSITION"
-}
-```
+SCORING.md's separation — RAW PERFORMANCE → GAME PLACEMENT → RECESS
+CHAMPIONSHIP POINTS — maps directly onto tables that already existed,
+mostly unused, from Gate A:
 
-Payload: `{ "placements": [{ "registration_id": "...", "position": 1 }, ...] }`
+- **Raw performance** lives in `results.payload`, one row per round,
+  immutable and append-only via the supersession chain already built in
+  0009 (`superseded_at`/`superseded_by`, one non-superseded result per
+  round enforced by a partial unique index). `round_participants` (also
+  0008) is the per-round record of who did what: `participation`
+  (PARTICIPATING/DNP), `role_key` (free text — ROLE_OUTCOME never hardcodes
+  role names into schema), and `raw_score` (Phase 7, PLACEMENT only — a
+  round's external-platform score per participant).
+- **Game placement** is never stored. It is computed at settlement time by
+  ranking the aggregated raw totals.
+- **RECESS championship points** land in `point_transactions` (0009) — but
+  only once per room-game, at settlement, never per round.
 
-`SHARED_POSITION` implements §26: two players at position 2 both receive the position-2 points, position 3 is skipped, next is 4. The alternative (`AVERAGE_BAND`, splitting the 2nd and 3rd values) is left in the enum but not built for v1.
+### 3.2 Templates actually implemented: PLACEMENT and ROLE_OUTCOME
 
-**ROLE_OUTCOME** — Among Us.
+**PLACEMENT** — Skribbl, Trivia. `event_games.scoring_config` needs nothing
+beyond `{"type": "placement"}` (present only so the existing
+`transition_event()` check-in guard, which refuses to open check-in while
+any game has an empty `{}` config, has something to see). There are no
+per-game point bands: every game's final ranking normalizes onto the same
+0–20 scale via one universal formula (§3.4), so a placement game's raw
+score only ever needs to be summed and ranked, never converted through a
+game-specific curve.
 
-```json
-{
-  "type": "role_outcome",
-  "roles": [
-    { "key": "crewmate", "label": "Crewmate", "is_default": true },
-    { "key": "impostor", "label": "Impostor" }
-  ],
-  "composition": {
-    "impostor": { "min": 1, "max": 3, "default": 3 }
-  },
-  "awards": {
-    "crewmate": { "win": 2, "loss": 0 },
-    "impostor": { "win": 4, "loss": 0 }
-  }
-}
-```
+**ROLE_OUTCOME** — Among Us. `scoring_config` carries `awards`, keyed by
+role, e.g. `{"crewmate": {"win": 1, "loss": 0}, "impostor": {"win": 2,
+"loss": 0}}` — the locked RECESS #1 values (SCORING.md §6). The engine
+reads whichever roles a payload's `winningRole` and each participant's
+`role` actually name; it never assumes two, or any fixed number, of
+impostors. Composition (1–3 impostors) is a coordinator-facing concern this
+phase does not build UI for — the engine only needs a role key and that
+key's configured win/loss award.
 
-Payload: `{ "winning_role": "impostor" }`
+TEAM_OUTCOME, INDIVIDUAL_OUTCOME, and a UI for MANUAL remain unimplemented;
+`admin_manual_adjustment()` (the ledger-level escape hatch) is built.
 
-**The engine records roles; it never assumes their composition.** `composition` lives in `event_games.scoring_config`, so an event can run 1, 2 or 3 impostors and the coordinator screen adapts its validation to whatever that edition configured. `is_default: true` means every participant not explicitly assigned a role is a crewmate — which is exactly the coordinator's mental model: tick the impostors, everyone else is crew.
-
-Keeping composition out of the engine is what makes ROLE_OUTCOME reusable for Werewolf, Mafia, or any hidden-role game later without touching scoring code.
-
-Locked for RECESS #1: crewmate win +2, impostor win +4, loss 0, DNP 0, 3 impostors by default. The asymmetry is a judgment about how much Among Us should move the championship, not an arithmetic consequence of team size — revisit after the dress rehearsal if Among Us starts dominating.
-
-**TEAM_OUTCOME** — `role_key` doubles as team key.
-
-```json
-{ "type": "team_outcome", "teams": [...], "awards": { "win": 5, "loss": 0, "draw": 2 } }
-```
-
-**INDIVIDUAL_OUTCOME** — chess, 8-ball, 1v1.
-
-```json
-{ "type": "individual_outcome", "awards": { "win": 5, "loss": 0, "draw": 2 } }
-```
-
-Payload: `{ "pairings": [{ "winner": "...", "loser": "..." }] }`
-
-**MANUAL** — the escape hatch.
-
-Payload: `{ "entries": [{ "registration_id": "...", "points": 3, "note": "improvised tiebreak" }] }`
-
-Build MANUAL first. It is the least interesting template and the one most likely to save the night.
-
-### 3.2 Submission is a single transactional function
+### 3.3 Round lifecycle and settlement are two different operations
 
 ```sql
-submit_result(
-  p_round_id        uuid,
-  p_payload         jsonb,
-  p_idempotency_key text
-) returns jsonb
+start_round(p_room_id, p_event_game_id) returns jsonb
+```
+Snapshots every registration with an active `room_membership` in that room
+at that exact moment into `round_participants`. A player who joins later is
+simply not in that snapshot — EVENT-OPS.md §7 — and becomes eligible
+starting with the next call to `start_round`.
+
+```sql
+preview_round_result(p_round_id, p_payload) returns jsonb
+submit_round_result(p_round_id, p_payload, p_idempotency_key) returns jsonb
+```
+Both share one validator (`validate_round_payload`) that checks every
+payload entry against the round's own snapshot — a registration not in it
+is rejected, not silently ignored — and against the event-game's configured
+roles. Preview runs this and returns the facts it would record; nothing is
+written. Submit does the same validation, then writes: supersede any
+existing result for this round (correction), insert the new one, update
+`round_participants` to match, mark the round `COMPLETE`. The idempotency
+key is globally unique on `results` — a repeated key returns the original
+outcome unchanged, whether that's the first tap or the fifth.
+
+**Round confirmation does not write to the point ledger.** A room-game is
+settled — raw totals aggregated across every confirmed round, ranked,
+normalized, and turned into `point_transactions` — exactly once, when
+`complete_room_game()` (0021, extended here to trigger this) runs. This is
+literally where SCORING.md §10 places it: "the room-game is settled when
+the coordinator completes that game." `complete_room_game()` also now
+refuses to complete while any round for that room-game is still `LIVE`.
+
+A correction to a round belonging to an *already-settled* room-game
+re-settles immediately, inside the same transaction as the correction —
+SCORING.md §13's numbered steps (supersede → recompute → void old
+transactions → write replacements) are not a separate manual process. The
+previous settlement's transactions are identified by
+`point_transactions.room_event_game_id` (Phase 7's one new ledger column) —
+a stable key naming *which room's settlement of which game* produced them,
+robust regardless of which specific round's correction triggered the
+re-settlement.
+
+```sql
+void_round(p_round_id, p_reason) returns jsonb
+```
+Only a `LIVE` round can be voided — EVENT-OPS.md §16, the crashed-game
+case. A `COMPLETE` round's fix path is correction (submit again), not
+voiding.
+
+### 3.4 Normalization is a fixed formula, not configuration
+
+For a settled room-game with N ranked players (everyone who participated in
+at least one confirmed round — a full-game DNP never enters this set) and a
+player's competition placement P:
+
+```
+RECESS_POINTS = round(20 × (N - P) / (N - 1))     for N >= 2
+RECESS_POINTS = 20                                 for N == 1
 ```
 
-Inside one transaction:
+This is the same formula for every template, every game, every room — it
+is not read from `scoring_config`, and no per-game bands exist to override
+it. First place is always 20; the last ranked place is always 0; ties use
+competition ranking (1, 2, 2, 4) with no hidden tiebreaker.
 
-1. Lock the round. Reject unless status is `LIVE`.
-2. If `p_idempotency_key` already exists in `results`, return the existing outcome unchanged. **This is what makes the double-tapped `IMPOSTORS WON` button safe** (§62). The key is generated client-side when the coordinator opens the result screen, not when they tap.
-3. Validate the payload against the template and the round's participants. A placement referencing someone who is DNP is a rejection, not a silent skip.
-4. Void any existing non-voided `RESULT` transactions for this round.
-5. Compute points from `event_games.scoring_config` and insert one `point_transactions` row per affected player. DNP players get no row at all — zero is the absence of a transaction, which keeps the ledger honest.
-6. Set round status `COMPLETE`.
-7. Write the audit row.
-8. Bump `events.state_version`.
+### 3.5 Standings and qualification are read, never stored
 
-Returns a preview-shaped object the coordinator UI shows as the confirmation screen (§21):
-
-```json
-{ "winning_role": "impostor", "awards": [ { "alias": "DAVO", "points": 3 }, ... ] }
+```sql
+room_standings(p_room_id) returns jsonb
 ```
+Sums each room member's non-voided `point_transactions`, ranks the totals,
+and marks `qualifies` for positions 1–2 (RECESS #1's locked value; the
+count itself stays a parameter, not a hardcoded `<= 2`) — including
+everyone tied into position 2. Nothing about a player's standing or
+qualification is stored as independent mutable truth; both are recomputed
+from the ledger on every read, which is what makes a correction's
+"recompute standings, recompute qualification" (SCORING.md §13) automatic
+rather than a separate step this schema would otherwise need to remember
+to perform.
 
-Correction (§23, §63) is the same function with a new payload and a new idempotency key. Because step 4 voids before step 5 inserts, and it is all one transaction, RECESS is never half-corrected. The admin correction screen calls `preview_result()` — the same computation with the write path skipped — to render the CURRENT / NEW / SCORE CHANGES diff before committing.
+### 3.6 Everything still runs server-side
 
-A void round (§30, crashed game) simply has all its transactions voided and status set `VOID`; a new round with the next index is created. Confirmed rounds are untouched.
-
-### 3.3 Everything runs server-side
-
-The client never computes a point total that anyone acts on. It may optimistically render `+3` after a coordinator confirms, but the number that lands in the standings comes back from the database. This is not paranoia about cheating — it is that two coordinators on flaky mobile data will otherwise produce two different leaderboards.
+Unchanged from the original framing here: the client never computes a
+point total anyone acts on. Every number above comes back from one of the
+functions in this section, computed inside a single transaction, or it
+doesn't exist yet.
 
 ---
 

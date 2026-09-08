@@ -9,9 +9,12 @@
 -- It includes the development seed, which is idempotent: running this twice
 -- inserts nothing the second time.
 --
--- The scoring values it carries are explicit PLACEHOLDERS. They must be
--- replaced with balanced RECESS #1 scoring before the dress rehearsal.
--- See docs/ROADMAP.md Phase 7.
+-- The scoring values it carries (via seed.sql) are the locked RECESS #1
+-- rules as of Phase 7 — see docs/SCORING.md. Among Us: crewmate win = 1
+-- raw, impostor win = 2 raw. Skribbl/Trivia: no per-game bands — every
+-- game's final ranking normalizes onto the same 0-20 scale via one
+-- universal formula, computed by the scoring engine itself, not sourced
+-- from configuration.
 
 \echo 'RECESS #1 production bootstrap'
 
