@@ -70,6 +70,7 @@ export type GameLibraryEntry = {
   platform: "BROWSER" | "INSTALL" | "NATIVE";
   scoringTemplate: string;
   defaultRoundCount: number;
+  defaultDurationMinutes: number | null;
 };
 
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; code: string; message: string };

@@ -563,7 +563,7 @@
   }
 
   .rc-admin-game-order { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.875rem; border-radius: 0.5rem; background: var(--paper); }
-  .rc-admin-game-order li { display: flex; align-items: center; gap: 0.625rem; font-size: var(--text-rc-sm); }
+  .rc-admin-game-order li { display: flex; align-items: center; flex-wrap: wrap; gap: 0.625rem; font-size: var(--text-rc-sm); }
   .rc-admin-game-order button {
     border: var(--hairline) solid var(--fg-line);
     background: var(--paper-deep);
@@ -573,6 +573,26 @@
     cursor: pointer;
   }
   .rc-admin-game-order button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .rc-admin-game-config-field {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-left: auto;
+    font-size: var(--text-rc-xs);
+    color: var(--fg-soft);
+  }
+  .rc-admin-game-config-field input {
+    width: 4.5rem;
+    padding: 0.25rem 0.5rem;
+    border: var(--hairline) solid var(--fg-line);
+    border-radius: 0.375rem;
+    background: var(--paper-deep);
+    font-size: var(--text-rc-sm);
+    color: var(--fg);
+  }
+  .rc-admin-game-config-field:first-of-type { margin-left: auto; }
+  .rc-admin-game-config-field + .rc-admin-game-config-field { margin-left: 0; }
 
   .rc-admin-room-drafts { display: flex; flex-direction: column; gap: 0.625rem; margin-bottom: 1rem; }
   .rc-admin-room-draft-row { display: grid; grid-template-columns: 1fr 8rem auto; gap: 0.625rem; }

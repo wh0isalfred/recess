@@ -171,8 +171,9 @@ Event Pass. An unauthenticated visitor cannot access another person's pass.
 **Goal.** Turn registrations into attendees, then into rooms.
 
 Rooms can exist beforehand; membership is assigned when players actually check
-in. Support random assignment, room capacity, uneven rooms, late arrivals, and
-manual admin reassignment later.
+in. Support strict sequential fill by room position (Room 01 fills before
+Room 02, and so on — not random), room capacity, uneven rooms, late arrivals,
+and manual admin reassignment later.
 
 **Acceptance.** With 10–20 test registrations checked in in random order:
 nobody exceeds room capacity; no player occupies two active rooms; assignment
@@ -272,8 +273,11 @@ Current game, each room's round and result status, player counts. Actions:
 pause event, start next round, start next game, view leaderboard. Warnings
 when rooms diverge.
 
-**Locked fairness rule.** Every room completes the same number of scored
-rounds for a room-based game.
+**Rooms progress independently.** Room 01 may already be on Skribbl while
+Room 03 is still finishing Among Us — EVENT-OPS.md §4/§13, and the actual
+model since Phase 6.5 (`room_event_games`). This screen's job is to make
+that divergence visible to the Admin, not to flag or prevent it as
+unfairness; there is no rule requiring rooms to stay in step.
 
 **Acceptance.** Admin can run a simulated event without touching Supabase
 manually.

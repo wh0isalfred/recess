@@ -82,6 +82,7 @@ function mapError(message: string): { code: string; message: string } {
     invalid_position: "Something went wrong ordering the games — try again.",
     invalid_event: "Check the event details — a date, window or link looks wrong.",
     invalid_duration: "Duration must be a positive number of minutes.",
+    invalid_rounds: "Planned rounds must be a positive number.",
     slug_taken: "An event with that URL slug already exists.",
     game_already_added: "That game is already in this event.",
     coordinator_required: "Choose a coordinator to create this room.",
@@ -162,12 +163,27 @@ export async function addEventGame(
   gameId: string,
   position: number,
   durationMinutes: number | null = null,
-): Promise<AdminResult<{ id: string; gameSlug: string; position: number; durationMinutes: number | null }>> {
+  plannedRounds: number | null = null,
+): Promise<AdminResult<{ id: string; gameSlug: string; position: number; durationMinutes: number | null; plannedRounds: number | null }>> {
   return callAdminRpc("admin_add_event_game", {
     p_event_slug: eventSlug,
     p_game_id: gameId,
     p_position: position,
     p_duration_minutes: durationMinutes,
+    p_planned_rounds: plannedRounds,
+  });
+}
+
+export async function updateEventGame(
+  eventSlug: string,
+  eventGameId: string,
+  input: { durationMinutes?: number | null; plannedRounds?: number | null },
+): Promise<AdminResult<{ id: string; durationMinutes: number | null; plannedRounds: number | null }>> {
+  return callAdminRpc("admin_update_event_game", {
+    p_event_slug: eventSlug,
+    p_event_game_id: eventGameId,
+    p_duration_minutes: input.durationMinutes ?? null,
+    p_planned_rounds: input.plannedRounds ?? null,
   });
 }
 

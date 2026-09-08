@@ -17,6 +17,8 @@ function toLagosIso(date: string, time: string): string | null {
   return `${date}T${time}:00+01:00`;
 }
 
+type SelectedGame = { gameId: string; durationMinutes: string; plannedRounds: string };
+
 /**
  * One page, three sections, a review step — not a paginated wizard.
  * Creating the event itself is one RPC call (admin_create_event, 0019);
@@ -45,7 +47,7 @@ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
   const [checkinCloseTime, setCheckinCloseTime] = useState("21:30");
   const [capacity, setCapacity] = useState("30");
   const [whatsapp, setWhatsapp] = useState("");
-  const [selectedGames, setSelectedGames] = useState<string[]>([]);
+  const [selectedGames, setSelectedGames] = useState<SelectedGame[]>([]);
 
   const [reviewing, setReviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -63,9 +65,23 @@ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
     }
   };
 
-  const toggleGame = (id: string) => {
-    setSelectedGames((prev) => (prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]));
+  const toggleGame = (game: GameLibraryEntry) => {
+    setSelectedGames((prev) =>
+      prev.some((g) => g.gameId === game.id)
+        ? prev.filter((g) => g.gameId !== game.id)
+        : [
+            ...prev,
+            {
+              gameId: game.id,
+              durationMinutes: game.defaultDurationMinutes?.toString() ?? "",
+              plannedRounds: game.defaultRoundCount.toString(),
+            },
+          ],
+    );
   };
+
+  const updateGameConfig = (gameId: string, patch: Partial<Omit<SelectedGame, "gameId">>) =>
+    setSelectedGames((prev) => prev.map((g) => (g.gameId === gameId ? { ...g, ...patch } : g)));
 
   const moveGame = (index: number, dir: -1 | 1) => {
     setSelectedGames((prev) => {
@@ -119,7 +135,10 @@ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
     }
 
     for (let i = 0; i < selectedGames.length; i++) {
-      const result = await addEventGame(slug, selectedGames[i], i + 1);
+      const g = selectedGames[i];
+      const durationMinutes = g.durationMinutes.trim() === "" ? null : Number(g.durationMinutes);
+      const plannedRounds = g.plannedRounds.trim() === "" ? null : Number(g.plannedRounds);
+      const result = await addEventGame(slug, g.gameId, i + 1, durationMinutes, plannedRounds);
       if (!result.ok) {
         setSubmitting(false);
         setError(`Event was created, but adding a game failed: ${result.message} You can finish this on the event's page.`);
@@ -158,9 +177,11 @@ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
           <dt>WhatsApp</dt><dd>{whatsapp.trim() || "not set"}</dd>
           <dt>Games</dt>
           <dd>
-            {selectedGames.map((id, i) => (
-              <span key={id}>
-                {i + 1}. {games.find((g) => g.id === id)?.name}
+            {selectedGames.map((g, i) => (
+              <span key={g.gameId}>
+                {i + 1}. {games.find((lib) => lib.id === g.gameId)?.name}
+                {" "}({g.durationMinutes.trim() === "" ? "no duration set" : `${g.durationMinutes} min`},{" "}
+                {g.plannedRounds.trim() === "" ? "library default rounds" : `${g.plannedRounds} rounds`})
                 {i < selectedGames.length - 1 ? ", " : ""}
               </span>
             ))}
@@ -255,7 +276,11 @@ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
           {games.map((g) => (
             <li key={g.id} className="rc-admin-game-picker-row">
               <label>
-                <input type="checkbox" checked={selectedGames.includes(g.id)} onChange={() => toggleGame(g.id)} />
+                <input
+                  type="checkbox"
+                  checked={selectedGames.some((sg) => sg.gameId === g.id)}
+                  onChange={() => toggleGame(g)}
+                />
                 {g.name} <span className="rc-admin-room-coordinator">({g.platform})</span>
               </label>
             </li>
@@ -264,15 +289,38 @@ export function NewEventForm({ games }: { games: GameLibraryEntry[] }) {
         </ul>
         {selectedGames.length > 0 ? (
           <ol className="rc-admin-game-order">
-            {selectedGames.map((id, i) => (
-              <li key={id}>
-                {i + 1}. {games.find((g) => g.id === id)?.name}
+            {selectedGames.map((sg, i) => (
+              <li key={sg.gameId}>
+                {i + 1}. {games.find((g) => g.id === sg.gameId)?.name}
                 <button type="button" onClick={() => moveGame(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
                 <button type="button" onClick={() => moveGame(i, 1)} disabled={i === selectedGames.length - 1} aria-label="Move down">↓</button>
+                <label className="rc-admin-game-config-field">
+                  <span>Duration (min)</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={sg.durationMinutes}
+                    onChange={(e) => updateGameConfig(sg.gameId, { durationMinutes: e.target.value })}
+                    placeholder="not set"
+                  />
+                </label>
+                <label className="rc-admin-game-config-field">
+                  <span>Planned rounds</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={sg.plannedRounds}
+                    onChange={(e) => updateGameConfig(sg.gameId, { plannedRounds: e.target.value })}
+                  />
+                </label>
               </li>
             ))}
           </ol>
         ) : null}
+        <p className="rc-admin-empty">
+          Duration and planned rounds are configuration, not a running timer — a room&rsquo;s actual game clock is
+          anchored to when its coordinator starts that game. Both values can be changed later.
+        </p>
       </section>
 
       <section className="rc-admin-card">

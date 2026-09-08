@@ -343,26 +343,29 @@ becomes official.
 At the end of the room phase, players are ranked by total RECESS championship
 points within their room.
 
-RECESS #1 currently intends to qualify the top 3 positions from each room.
+RECESS #1 qualifies positions 1 and 2 from every room.
 
-The qualification count should be configurable.
+The qualification count should remain configurable — RECESS #1 locks the
+*value* (2), not the architecture, since the number of rooms (and therefore
+how many total finalists that implies) may change between editions.
 
 ### Qualification ties
 
-If a tie reaches the qualification boundary, everybody tied at that position
+If a tie touches the qualification boundary, everybody tied at that position
 qualifies.
 
 Example:
 
 1 Alfred
 2 Kemz
-3 Theo
-3 Sarah
-5 Josh
+2 Theo
+4 Sarah
 
-If the top 3 positions qualify:
+If the top 2 positions qualify:
 
-Alfred, Kemz, Theo and Sarah qualify.
+Alfred, Kemz and Theo all qualify — the tie at 2nd means both Kemz and Theo
+hold that position, and neither is bumped out to make room for the other.
+Sarah, at 4, does not qualify.
 
 No tiebreak is secretly applied.
 
@@ -469,15 +472,53 @@ Normal mistakes should be fixed by correcting the source result instead.
 
 ## 17. Championship round
 
-The room-phase scoring engine must not assume how the championship finale will
-work.
+RECESS #1 has now locked the finale shape. The room-phase scoring engine
+(Scoring Engine V1) still must not hardcode any of this into room-phase
+logic — qualification and room standings are computed exactly as above,
+independent of what happens next — but the finale itself is no longer an
+open question.
 
-Whole-event/finale rounds may exist, but RECESS #1 has not yet locked:
+### The finale game
 
-- the championship game;
-- whether room-phase points carry forward;
-- whether the finale alone determines the champion;
-- exact finale scoring.
+The championship finale is Trivia.
 
-Scoring Engine V1 should therefore implement room-phase scoring and
-qualification cleanly without inventing finale rules.
+Every qualifier from every room (§12 — positions 1 and 2, plus anyone tied
+into 2nd) plays in one finalist pool, together, regardless of which room
+they qualified from.
+
+### Room-phase points carry over
+
+A finalist's room-phase RECESS championship total (§11) is not discarded
+and does not reset to zero for the finale. It carries forward as the base
+their finale result is added to.
+
+### Finale scoring
+
+The finale Trivia session is scored exactly like a room-phase placement
+game (§7, §3): raw scores are recorded, competition ranking is derived, and
+that ranking is normalized onto the same 0–20 RECESS scale — but N here is
+the number of players in the finalist pool, not a room's roster, since
+every qualifier from every room now competes in the same single ranking.
+
+This is a second, independent settlement, not a continuation of any
+room-phase game. It produces its own championship-point transactions,
+separate from the ones room-phase games already produced.
+
+### Final cumulative total
+
+FINAL_TOTAL =
+room-phase RECESS championship total
++ finale Trivia RECESS points
+
+The player with the highest final cumulative total is the RECESS champion.
+
+### What remains unresolved
+
+Exact champion-tie behavior — what happens if two or more finalists share
+the single highest FINAL_TOTAL — is intentionally not decided here and must
+not be invented by Scoring Engine V1. Every other tie in this document (game
+placement, qualification) uses competition ranking with no hidden
+tiebreaker; whether the champion tie follows that same pattern, or is
+resolved some other way (a tiebreak round, a shared championship, an Admin
+call), is a real open decision for RECESS to make separately, not a gap for
+the engine to quietly fill in.
