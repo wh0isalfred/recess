@@ -22,10 +22,15 @@ end $$;
 grant usage on schema public to anon, authenticated, service_role;
 grant usage on schema extensions to anon, authenticated, service_role;
 
--- Minimal stand-in for auth.users. Only the columns our foreign keys touch.
+-- Minimal stand-in for auth.users. Only the columns our foreign keys touch,
+-- plus phone/phone_confirmed_at (Phase 8.1) — real Supabase Auth populates
+-- these itself once a phone OTP verification succeeds; nothing in RECESS's
+-- own migrations ever writes them outside a test fixture.
 create table if not exists auth.users (
   id    uuid primary key default gen_random_uuid(),
-  email text
+  email text,
+  phone text,
+  phone_confirmed_at timestamptz
 );
 
 create or replace function auth.uid() returns uuid

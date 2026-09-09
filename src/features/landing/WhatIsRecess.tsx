@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 /**
  * `WHAT IS RECESS?` has no existing destination anywhere in the product —
@@ -13,6 +13,19 @@ import { useId, useState } from "react";
 export function WhatIsRecess() {
   const [open, setOpen] = useState(false);
   const panelId = useId();
+  const panelRef = useRef<HTMLParagraphElement>(null);
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next) {
+      // Only on open — closing shouldn't yank the scroll position back
+      // down. A short delay lets `hidden` actually clear before measuring.
+      requestAnimationFrame(() => {
+        panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    }
+  };
 
   return (
     <div className="rc-landing-explain">
@@ -21,11 +34,12 @@ export function WhatIsRecess() {
         className="rc-landing-explain-toggle"
         aria-expanded={open}
         aria-controls={panelId}
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
       >
         WHAT IS RECESS?
       </button>
       <p
+        ref={panelRef}
         id={panelId}
         className="rc-landing-explain-panel"
         data-open={open}

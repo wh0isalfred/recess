@@ -203,6 +203,56 @@
     color: var(--alert);
   }
 
+  /* ------------------------------------------------------------- OTP cells */
+
+  .rc-access-otp-row {
+    display: flex;
+    gap: 0.625rem;
+    justify-content: center;
+  }
+  .rc-access-otp-cell {
+    width: 3rem;
+    height: 3.5rem;
+    min-height: var(--rc-tap);
+    border-radius: 0.75rem;
+    border: var(--hairline) solid var(--fg-line);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: var(--text-rc-lg);
+    font-weight: 700;
+    text-align: center;
+  }
+  .rc-access-otp-cell:focus-visible {
+    outline: 3px solid var(--pink);
+    outline-offset: 1px;
+    border-color: var(--pink);
+  }
+  .rc-access-otp-cell:disabled {
+    opacity: 0.6;
+  }
+
+  .rc-access-resend {
+    display: block;
+    margin: 0.875rem auto 0;
+    padding: 0.5rem;
+    min-height: var(--rc-tap-sm);
+    background: none;
+    border: none;
+    font-size: var(--text-rc-sm);
+    color: var(--fg-soft);
+    text-align: center;
+  }
+  .rc-access-resend:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .rc-access-resend-link {
+    color: var(--pink);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
   /* -------------------------------------------------------------- foot/CTA */
 
   .rc-reg-foot {

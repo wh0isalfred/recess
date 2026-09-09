@@ -80,9 +80,17 @@ export function Landing({
             OPEN YOUR PASS
           </Button>
         ) : (
-          <Button href="/register" variant="poster" size="lg" arrow>
-            I&rsquo;M IN
-          </Button>
+          <>
+            <Button href="/register" variant="poster" size="lg" arrow>
+              I&rsquo;M IN
+            </Button>
+            <p className="rc-landing-returning">
+              Already in RECESS?{" "}
+              <a href="/access" className="rc-landing-returning-link">
+                Open your pass &rarr;
+              </a>
+            </p>
+          </>
         )}
 
         <WhatIsRecess />

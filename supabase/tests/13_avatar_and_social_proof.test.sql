@@ -36,13 +36,14 @@ select ok(
 
 -- --------------------------------------------------- retry does not change it
 
-select pg_temp.as_player(gen_random_uuid());
-
 create temporary table t1 as
   select avatar_color from public.players where phone_e164 = '+2348022220001';
 
--- Same phone, same event, a second real call — the idempotent-retry path
--- (found in v_existing), not a fresh insert.
+-- Same phone, same event, same session, a second real call — the
+-- idempotent-retry path (found in v_existing), not a fresh insert. Phase
+-- 8.1: a genuine retry reuses the same recognized session; a *different*,
+-- unrecognized session submitting this same phone is the exact scenario
+-- register_player() must now refuse (see test 52).
 select public.register_player('recess-01','Ada Lovelace','avataraaa','+2348022220001', true);
 
 select is(
@@ -62,6 +63,17 @@ insert into public.events (
 );
 -- event_counters gets its row automatically via the trigger in 0004 — no
 -- explicit insert needed (and a redundant one collides on the primary key).
+
+-- A fresh session (a new device/browser, or simply a later event with the
+-- pre-existing one-registration-per-auth_user_id constraint in play)
+-- registering an already-registered phone must be recognized first — this
+-- is exactly what recover_player_access() does after a real phone-OTP
+-- verification; simulated directly here since no real OTP provider exists
+-- in this test environment.
+select pg_temp.as_player(gen_random_uuid());
+insert into public.player_auth_identities (player_id, auth_user_id, identity_type, verified_at)
+select p.id, (select current_setting('request.jwt.claim.sub')::uuid), 'PHONE_VERIFIED', now()
+  from public.players p where p.phone_e164 = '+2348022220001';
 
 select public.register_player('recess-02','Ada Lovelace','avataraaa2','+2348022220001', true);
 

@@ -111,9 +111,30 @@
   /* -------------------------------------------------------------------- CTA */
 
   .rc-landing-frame > .rc-landing-explain,
+  .rc-landing-frame > .rc-landing-returning,
   .rc-landing-frame > a,
   .rc-landing-frame > button {
     margin-top: 1rem;
+  }
+
+  /* ----------------------------------------------------------- returning */
+
+  .rc-landing-returning {
+    text-align: center;
+    font-size: var(--text-rc-sm);
+    color: var(--fg-soft);
+    line-height: 1.6;
+  }
+
+  .rc-landing-returning-link {
+    display: inline-block;
+    color: var(--pink);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .rc-landing-returning-link:hover {
+    text-decoration: underline;
   }
 
   /* --------------------------------------------------------------- explain */
