@@ -1,0 +1,86 @@
+/* ===========================================================================
+   Loading states (Phase 8.2) — a restrained branded loader for whole-page
+   boundaries, and a dimension-preserving skeleton for registered-player
+   content transitions where the persistent shell/nav stay mounted around
+   it. Light mode only, matching the rest of RECESS V1.
+   =========================================================================== */
+
+@layer components {
+  /* --------------------------------------------------------- full-page loader */
+
+  .rc-loader-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100svh;
+    background: var(--paper);
+  }
+
+  .rc-loader-mark {
+    width: 9rem;
+    height: auto;
+    color: var(--ink);
+    animation: rc-loader-breathe 1.8s ease-in-out infinite;
+  }
+
+  @keyframes rc-loader-breathe {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.85; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rc-loader-mark {
+      animation: none;
+      opacity: 0.7;
+    }
+  }
+
+  /* ------------------------------------------------------- content skeleton */
+
+  .rc-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    padding: 1.5rem 1.25rem calc(2rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .rc-skeleton-bar {
+    height: 1rem;
+    border-radius: 0.5rem;
+    background: color-mix(in oklab, var(--ink) 8%, var(--paper));
+    animation: rc-skeleton-pulse 1.6s ease-in-out infinite;
+  }
+  .rc-skeleton-bar--heading {
+    height: 1.75rem;
+    width: 60%;
+    margin-bottom: 0.25rem;
+  }
+  .rc-skeleton-bar--line {
+    width: 90%;
+  }
+  .rc-skeleton-bar--short {
+    width: 45%;
+  }
+
+  .rc-skeleton-card {
+    margin-top: 0.5rem;
+    height: 9rem;
+    width: 100%;
+    border-radius: var(--r-surface, 1rem);
+    background: color-mix(in oklab, var(--ink) 6%, var(--paper));
+    animation: rc-skeleton-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes rc-skeleton-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rc-skeleton-bar,
+    .rc-skeleton-card {
+      animation: none;
+      opacity: 0.85;
+    }
+  }
+}

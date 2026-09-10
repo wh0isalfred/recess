@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { PassIcon, GamesIcon, PlayersIcon, MoreIcon } from "@/components/brand/v2/icons";
 
 const TABS = [
@@ -15,13 +18,22 @@ const TABS = [
  * same bounded canvas as the rest of the shell on desktop (not stretched
  * across the browser). Active tab is a color change only (pink vs neutral)
  * plus `aria-current="page"` — never a floating pill, never glassmorphism.
+ *
+ * Phase 8.2: a Client Component reading the pathname itself, rather than
+ * receiving `active` as a prop from whichever page happened to render it —
+ * since this is now rendered exactly once, by the shared (player) layout,
+ * there is no per-page prop to receive it from. `startsWith` (not exact
+ * equality) so a future nested route under, say, /games/some-game still
+ * highlights the Games tab correctly.
  */
-export function PlayerShellNav({ active }: { active: "pass" | "games" | "players" | "more" }) {
+export function PlayerShellNav() {
+  const pathname = usePathname();
+
   return (
     <nav className="rc-shell-nav" aria-label="RECESS">
       <div className="rc-shell-nav-inner">
         {TABS.map(({ key, href, label, Icon }) => {
-          const isActive = key === active;
+          const isActive = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link
               key={key}

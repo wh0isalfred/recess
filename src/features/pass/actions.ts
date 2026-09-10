@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { CheckInResult, PlayerState } from "./types";
 import { classifyIdentity, type IdentityResolution } from "./identity";
@@ -38,7 +39,7 @@ export type { IdentityResolution } from "./identity";
  * either direction — an onboarding guard renders an explicit retry state
  * for it, never onboarding and never a redirect. See IdentityCheckFailed.
  */
-export async function resolvePlayerIdentity(): Promise<IdentityResolution> {
+export const resolvePlayerIdentity = cache(async (): Promise<IdentityResolution> => {
   let supabase: Awaited<ReturnType<typeof createClient>> | undefined;
   try {
     supabase = await createClient();
@@ -82,7 +83,7 @@ export async function resolvePlayerIdentity(): Promise<IdentityResolution> {
     clientFailed: false, sessionCheckFailed: false, hasSession: true,
     rpcThrew, rpcError, rpcData,
   });
-}
+});
 
 /**
  * Friendly text for every code check_in_player() can raise — see the

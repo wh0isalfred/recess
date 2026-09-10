@@ -7,22 +7,18 @@ import { PlayerShellNav } from "./PlayerShellNav";
  * per the brief), safe-area padding, and the persistent bottom nav with
  * enough content padding that nothing hides behind it.
  *
- * Applied to PASS_COUNTDOWN only in this slice — WAITLISTED/CHECK_IN_OPEN/
- * ROOM_ASSIGNED/CHECKED_IN_WAITING keep their existing presentation
- * unchanged (see the delivery report for why retrofitting nav onto
- * explicitly out-of-scope screens was deliberately not done here).
+ * Phase 8.2: rendered once, by the shared (player)/layout.tsx, instead of
+ * per-page — this is what makes it (and PlayerShellNav) genuinely persist
+ * across navigation rather than remount on every route change. No longer
+ * takes an `active` prop: PlayerShellNav now derives the active tab from
+ * the current pathname itself, since a single shared instance has no
+ * per-page prop to receive it from in the first place.
  */
-export function PlayerShell({
-  active,
-  children,
-}: {
-  active: "pass" | "games" | "players" | "more";
-  children: ReactNode;
-}) {
+export function PlayerShell({ children }: { children: ReactNode }) {
   return (
     <div className="rc-shell">
       <div className="rc-shell-canvas">{children}</div>
-      <PlayerShellNav active={active} />
+      <PlayerShellNav />
     </div>
   );
 }
