@@ -1,0 +1,153 @@
+/* ===========================================================================
+   Player Live V2 (Phase 8.3 Gate B) — LIVE_ROUND, BETWEEN_ROUNDS,
+   BETWEEN_GAMES, PAUSED, QUALIFIED, NOT_QUALIFIED. RECESS V1 light/paper
+   system throughout — no night ground anywhere in this file. Editorial
+   game-night-poster energy, not a live-ops dashboard: one dominant piece
+   of information per screen, generous space, game artwork as the visual
+   anchor where it belongs.
+   =========================================================================== */
+
+@layer components {
+  .rc-live {
+    min-height: 100svh;
+  }
+
+  .rc-live-stage {
+    position: relative;
+    z-index: 1;
+    max-width: 26rem;
+    margin: 0 auto;
+    padding: 2rem 1.25rem calc(2rem + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.75rem;
+  }
+
+  .rc-live-mark {
+    width: 2.25rem;
+    height: auto;
+    color: var(--fg);
+    margin-bottom: 0.5rem;
+  }
+
+  .rc-live-eyebrow {
+    font-size: var(--text-rc-sm);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent-text);
+  }
+
+  .rc-live-heading {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-xl);
+    line-height: var(--text-rc-xl--line-height);
+    color: var(--fg);
+    max-width: 22ch;
+  }
+
+  .rc-live-round-count {
+    font-size: var(--text-rc-lg);
+    font-weight: 800;
+    color: var(--fg);
+  }
+
+  .rc-live-timer {
+    font-size: var(--text-rc-md);
+    font-weight: 700;
+    color: var(--go);
+  }
+
+  .rc-live-support {
+    font-size: var(--text-rc-base);
+    color: var(--fg-soft);
+    max-width: 30ch;
+  }
+
+  .rc-live-points {
+    font-size: var(--text-rc-lg);
+    font-weight: 800;
+    color: var(--fg);
+  }
+
+  .rc-live-pending-tag {
+    font-size: var(--text-rc-xs);
+    font-weight: 700;
+    color: var(--warn);
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--r-pill);
+    background: color-mix(in oklab, var(--warn) 14%, transparent);
+  }
+
+  .rc-live-open-game {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: var(--rc-tap-sm);
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--r-control);
+    background: var(--pink);
+    color: var(--paper);
+    font-weight: 800;
+    font-size: var(--text-rc-sm);
+    text-decoration: none;
+  }
+
+  .rc-live-coordinator {
+    font-size: var(--text-rc-sm);
+    color: var(--fg-soft);
+  }
+
+  .rc-live-upnext {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  .rc-live-upnext-label {
+    font-size: var(--text-rc-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--fg-soft);
+  }
+  .rc-live-upnext-name {
+    font-size: var(--text-rc-md);
+    font-weight: 700;
+    color: var(--fg);
+  }
+
+  .rc-live-stage--paused {
+    padding-top: 4rem;
+  }
+
+  /* ------------------------------------------------------------- artwork */
+
+  .rc-live-artwork {
+    position: relative;
+    width: 100%;
+    max-width: 22rem;
+    border-radius: var(--r-surface, 1rem);
+    overflow: hidden;
+    background: color-mix(in oklab, var(--ink) 6%, var(--paper));
+  }
+  .rc-live-artwork-img {
+    object-fit: cover;
+  }
+  .rc-live-artwork-fallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in oklab, var(--pink) 12%, var(--paper));
+  }
+  .rc-live-artwork-fallback-letter {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: 3.5rem;
+    color: var(--pink);
+    opacity: 0.55;
+  }
+}

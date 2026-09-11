@@ -1,16 +1,50 @@
+import { Surface } from "@/components/ui/Surface";
+import { GameArtwork } from "@/features/live/GameArtwork";
+import { fetchMyGameProgress } from "@/features/live/actions";
+
 /**
- * Minimal placeholder — REFERENCE in docs/SCREEN-STATUS.md, not a designed
- * screen. Exists only so the bottom nav (Player Shell V2) has somewhere
- * real to link to instead of a 404. Do not treat this as the Games design;
- * it isn't one.
- *
- * Phase 8.2: identity guard and PlayerShell wrapping both moved to the
- * shared (player)/layout.tsx — this page owns only its own content now.
+ * /games — the map of the night, not a live feed (that's /pass). The
+ * event's configured games in order, each honestly marked from the
+ * player's own room's progression — never another room's, never
+ * controls a coordinator/admin would use. Before room assignment, every
+ * item simply reads PENDING rather than pretending room-specific
+ * progress exists yet.
  */
-export default function GamesPage() {
+export default async function GamesPage() {
+  const result = await fetchMyGameProgress();
+
+  if (!result.ok) {
+    return (
+      <Surface as="main" grain="low" className="rc-games">
+        <p className="rc-games-error">{result.message}</p>
+      </Surface>
+    );
+  }
+
   return (
-    <div className="rc-shell-placeholder">
-      <p>Games is coming soon.</p>
-    </div>
+    <Surface as="main" grain="low" className="rc-games">
+      <div className="rc-games-stage">
+        <h1 className="rc-games-heading">TONIGHT&rsquo;S GAMES</h1>
+        <ol className="rc-games-list">
+          {result.data.map((game) => (
+            <li key={game.slug} className="rc-games-row" data-status={game.status}>
+              <GameArtwork artworkUrl={game.artworkUrl} name={game.name} aspect="1/1" />
+              <div className="rc-games-row-info">
+                <p className="rc-games-row-name rc-numeric">{game.name}</p>
+                <p className="rc-games-row-status">
+                  {game.status === "COMPLETE"
+                    ? game.yourGamePoints !== null
+                      ? `Done · ${game.yourGamePoints} points`
+                      : "Done"
+                    : game.status === "LIVE"
+                      ? `Live · round ${game.completedRounds} of ${game.plannedRounds}`
+                      : "Upcoming"}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </Surface>
   );
 }

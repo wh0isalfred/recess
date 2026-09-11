@@ -1,0 +1,23 @@
+/* Phase 8.3 Gate B — /players. RECESS V1 light/paper system throughout. */
+@layer components {
+  .rc-players { min-height: 100svh; }
+  .rc-players-stage {
+    max-width: 26rem; margin: 0 auto;
+    padding: 1.5rem 1.25rem calc(2rem + env(safe-area-inset-bottom, 0px));
+  }
+  .rc-players-heading {
+    font-family: var(--font-display-family), system-ui, sans-serif;
+    font-size: var(--text-rc-lg); color: var(--fg); margin-bottom: 1.25rem;
+  }
+  .rc-players-support { color: var(--fg-soft); }
+  .rc-players-standings { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+  .rc-players-row {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.75rem 1rem; border-radius: var(--r-control);
+    background: color-mix(in oklab, var(--ink) 4%, var(--paper));
+  }
+  .rc-players-placement { font-size: var(--text-rc-lg); font-weight: 800; color: var(--accent-text); min-width: 2rem; }
+  .rc-players-alias { flex: 1 1 auto; font-weight: 600; color: var(--fg); }
+  .rc-players-points { font-weight: 800; color: var(--fg); }
+  .rc-players-error { padding: 1.5rem 1.25rem; color: var(--alert); }
+}

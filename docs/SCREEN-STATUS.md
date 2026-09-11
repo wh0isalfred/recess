@@ -51,23 +51,38 @@ refresh → duplicate-prevention) has actually been run.
 | 03/04/05 | Registration (V2) — Name / Alias / WhatsApp | Reference supplied | Registration | REVIEW |
 | 06 | You're In | — | — | **Removed this slice.** Confirmed unreachable (nothing calls `markPassFresh()` since Registration V2 — see that slice's note, previously left in place pending confirmation). Player Shell V2 / Pass V2 touches Pass directly, so per instruction the dead screen, its Confetti/Confirmed code, and its only-used-there helpers (`greeting.ts`, `countdown.ts`, `fresh.ts`, `event-pass.css`) were deleted rather than left as a zombie path. |
 | 07 | Pass (V2) — PASS_COUNTDOWN pre-event | Reference supplied | Event + Player + SocialProof | REVIEW |
-| 08 | Check-in | Reference supplied | Check-in | REVIEW |
-| 09 | Room | Reference supplied | Room | APPROVED |
-| 10 | Live Game | Reference required | Round | REFERENCE |
-| 11 | Between Games | Reference required | Score | REFERENCE |
-| 12 | Results | Reference required | Leaderboard | REFERENCE |
-| — | Games | No reference — minimal placeholder only | — | REFERENCE |
-| — | Players | No reference — minimal placeholder only | — | REFERENCE |
-| — | More | No reference — minimal placeholder only | — | REFERENCE |
+| 08 | Check-in | Reference supplied | Check-in | REVIEW — converted to light/paper ground, Phase 8.3 |
+| 09 | Room | Reference supplied | Room | REVIEW — was APPROVED under a night ground; converted to light/paper, Phase 8.3, re-approval warranted |
+| — | Live Round | No reference — built from Gate A/B spec | Room + activeGame | REVIEW |
+| — | Between Rounds | No reference — built from Gate A/B spec | activeGame | REVIEW |
+| — | Between Games | No reference — built from Gate A/B spec | lastCompletedGame + nextGame | REVIEW |
+| — | Paused | No reference — built from Gate A/B spec | — | REVIEW |
+| — | Qualified | No reference — built from Gate A/B spec | championship | REVIEW |
+| — | Not Qualified | No reference — built from Gate A/B spec | championship | REVIEW |
+| 12 | Results | Reference required — no finale/final-results engine exists yet | — | REFERENCE |
+| — | Games | Built from Gate A/B spec (map of the night, own-room progression) | get_my_game_progress() | REVIEW |
+| — | Players | Built from Gate A/B spec (own-room roster + permitted standings) | get_my_room_standings() | REVIEW |
+| — | More | Built from Gate A/B spec (event details, WhatsApp, coordinator entry) | Event + coordinating | REVIEW |
+
+**Explicitly NOT implemented as of Phase 8.3 Gate B**: the finale engine
+(no function starts/settles a whole-event round, computes cross-room
+championship totals, or determines a champion — `RESULTS` remains an
+honest placeholder, never a fabricated result) and Supabase Realtime (a
+client-side safety-refresh poll plus visibility/online listeners stand in
+for now — see `src/features/live/LiveStateRefresher.tsx` — the
+broadcast-a-nudge architecture from the Gate A spec remains a later
+phase's work).
 
 **Player Shell V2** (`src/features/player-shell/`) — cross-cutting registered-
 player infrastructure, not a screen of its own: the bounded canvas, safe-area
-handling, and persistent bottom nav (Pass/Games/Players/More) that Pass V2
-now renders inside. Applied to `PASS_COUNTDOWN` only this slice —
-`WAITLISTED`/`CHECK_IN_OPEN`/`ROOM_ASSIGNED`/`CHECKED_IN_WAITING`/the plain
-fallback keep their existing presentation, unwrapped, since retrofitting
-nav onto explicitly out-of-scope screens risked inconsistent UX worse than
-consistently absent nav until each gets its own V2 pass.
+handling, and persistent bottom nav (Pass/Games/Players/More). As of Phase
+8.2 it's rendered exactly once, by the shared `(player)/layout.tsx`, so the
+shell genuinely persists across navigation rather than remounting per page.
+As of Phase 8.3 it wraps every state reachable under `/pass` — including
+`WAITLISTED`/`CHECK_IN_OPEN`/`ROOM_ASSIGNED`/`CHECKED_IN_WAITING`, which
+previously rendered unwrapped, and every new Player Live V2 state
+(`LIVE_ROUND`/`BETWEEN_ROUNDS`/`BETWEEN_GAMES`/`PAUSED`/`QUALIFIED`/
+`NOT_QUALIFIED`).
 
 **Persistent avatar color** (migration 0020) — every player has one
 permanent, randomly-assigned color from an 8-value palette, stored on
@@ -149,9 +164,14 @@ output); migrating those is a call for whoever approves each of them next.
 
 Also awaiting supply — game artwork. Architecture is built (`games.artwork_url`,
 same-origin-path-constrained, static files, no Storage bucket) and the UI
-degrades gracefully to a branded fallback (`src/components/brand/GameArt.tsx`)
-wherever it's used (Screen 07's GET READY, Screen 09's UP FIRST). The real
-files are not yet supplied:
+degrades gracefully to a branded fallback wherever it's used: Screen 07's GET
+READY and Screen 09's UP FIRST via `src/components/brand/GameArt.tsx` (small,
+card-sized), and every Phase 8.3 Player Live V2 screen (Live Round, Between
+Rounds, Between Games) via the new, larger `src/features/live/GameArtwork.tsx`
+(poster-scale, with its own load-failure fallback — `GameArt` only ever
+handled a null `artworkUrl`, not a non-null path with no real file behind
+it, which is what every seeded game currently has). The real files are not
+yet supplied:
 
 | Asset | Path | Screens |
 |---|---|---|

@@ -1,16 +1,56 @@
+import { Surface } from "@/components/ui/Surface";
+import { fetchMyRoomStandings } from "@/features/live/actions";
+
 /**
- * Minimal placeholder — REFERENCE in docs/SCREEN-STATUS.md, not a designed
- * screen. Exists only so the bottom nav (Player Shell V2) has somewhere
- * real to link to instead of a 404. Do not treat this as the Players
- * design; it isn't one.
- *
- * Phase 8.2: identity guard and PlayerShell wrapping both moved to the
- * shared (player)/layout.tsx — this page owns only its own content now.
+ * /players — your room, your people, standings only when
+ * leaderboard_visibility permits. Never a global directory, never
+ * another room's roster, never a registrationId or any staff-only
+ * field. get_my_room_standings() itself decides whether standings exist
+ * at all for the caller right now — this page never second-guesses that
+ * server decision.
  */
-export default function PlayersPage() {
+export default async function PlayersPage() {
+  const result = await fetchMyRoomStandings();
+
+  if (!result.ok) {
+    return (
+      <Surface as="main" grain="low" className="rc-players">
+        <p className="rc-players-error">{result.message}</p>
+      </Surface>
+    );
+  }
+
+  const { room, standings } = result.data;
+
+  if (!room) {
+    return (
+      <Surface as="main" grain="low" className="rc-players">
+        <div className="rc-players-stage">
+          <h1 className="rc-players-heading">YOUR PEOPLE</h1>
+          <p className="rc-players-support">You&rsquo;ll see your room here once you&rsquo;re assigned one.</p>
+        </div>
+      </Surface>
+    );
+  }
+
   return (
-    <div className="rc-shell-placeholder">
-      <p>Players is coming soon.</p>
-    </div>
+    <Surface as="main" grain="low" className="rc-players">
+      <div className="rc-players-stage">
+        <h1 className="rc-players-heading rc-numeric">{room}</h1>
+        {standings ? (
+          <ol className="rc-players-standings">
+            {standings.map((row) => (
+              <li key={row.alias} className="rc-players-row">
+                <span className="rc-players-placement rc-numeric">{row.placement}</span>
+                <span className="rc-players-alias">{row.alias}</span>
+                <span className="rc-players-points rc-numeric">{row.totalPoints}</span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="rc-players-support">Standings aren&rsquo;t shown yet — check back later tonight.</p>
+        )}
+      </div>
+    </Surface>
   );
 }

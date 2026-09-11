@@ -5,17 +5,22 @@ import { PosterLine } from "@/components/brand/RecessWordmark";
 import type { RegistrationState } from "@/features/registration/types";
 import { formatEventDate, formatPlayerNumber } from "@/features/registration/calendar";
 import type { PlayerState } from "@/features/pass/types";
+import { LiveStateRefresher } from "@/features/live/LiveStateRefresher";
 import { PassCountdownScreen } from "./PassCountdownScreen";
 import { CheckInScreen } from "./CheckInScreen";
 import { RoomAssignedScreen } from "./RoomAssignedScreen";
 import { WaitingForRoomScreen } from "./WaitingForRoomScreen";
+import { LiveRoundScreen } from "./LiveRoundScreen";
+import { BetweenRoundsScreen } from "./BetweenRoundsScreen";
+import { BetweenGamesScreen } from "./BetweenGamesScreen";
+import { PausedScreen } from "./PausedScreen";
+import { QualifiedScreen } from "./QualifiedScreen";
+import { NotQualifiedScreen } from "./NotQualifiedScreen";
 
 /**
- * WAITLISTED's own screen — unchanged from before this task, only the props
- * feeding it now come from get_player_state() rather than
- * get_my_registration(), adapted below by toRegistrationState(). Out of
- * scope for the Pass V2 slice (the brief only covers PASS_COUNTDOWN); left
- * exactly as it was.
+ * WAITLISTED's own screen — unchanged content from before this task, only
+ * the props feeding it now come from get_player_state() rather than
+ * get_my_registration(), adapted below by toRegistrationState().
  */
 function Waitlisted({ registration }: { registration: RegistrationState }) {
   return (
@@ -35,11 +40,12 @@ function Waitlisted({ registration }: { registration: RegistrationState }) {
 }
 
 /**
- * A checked-in player in a state Screen 09 doesn't cover (LIVE, results,
- * event cancelled) must still land somewhere true, not blank or pretending
- * to be a finished screen. Plain, in the system's own type and colour.
- * CHECKED_IN_WAITING and ROOM_ASSIGNED have their own real screens now, so
- * they no longer route here — see the dispatch below.
+ * A checked-in player in a state this system doesn't have a real screen
+ * for yet must still land somewhere true, not blank or pretending to be
+ * finished. LATE_ARRIVAL (the backend doesn't yet distinguish it from
+ * ordinary ROOM_ASSIGNED) and RESULTS (no finale/final-results engine
+ * exists — see docs/SCREEN-STATUS.md) are the only views still routed
+ * here as of Phase 8.3 Gate B.
  */
 function MinimalFallback({ state }: { state: PlayerState }) {
   const copy: Record<string, string> = {
@@ -47,10 +53,7 @@ function MinimalFallback({ state }: { state: PlayerState }) {
     EVENT_CANCELLED: "This RECESS has been cancelled.",
     CANCELLED: "This registration was cancelled.",
     LATE_ARRIVAL: "You're checked in. Find a coordinator to join a room.",
-    LIVE_ROUND: "RECESS is live right now.",
-    BETWEEN_GAMES: "Between games right now.",
-    PAUSED: "Play is paused right now.",
-    RESULTS: "RECESS has wrapped — results are in.",
+    RESULTS: "RECESS is done. Final results are being finalized.",
   };
   return (
     <>
@@ -95,17 +98,31 @@ function CoordinatorBanner({ state }: { state: PlayerState }) {
   );
 }
 
+const DYNAMIC_VIEWS = new Set([
+  "CHECKED_IN_WAITING",
+  "ROOM_ASSIGNED",
+  "LIVE_ROUND",
+  "BETWEEN_ROUNDS",
+  "BETWEEN_GAMES",
+  "PAUSED",
+  "QUALIFIED",
+  "NOT_QUALIFIED",
+]);
+
 /**
- * Phase 8.2: no longer wraps PASS_COUNTDOWN in its own <PlayerShell> —
- * the shared (player)/layout.tsx now renders PlayerShell exactly once for
- * every state reachable under /pass, this one included. See that layout's
- * own comment for what that means for the other branches below, which
- * previously rendered with no shell/nav at all.
+ * Phase 8.2: PlayerShell is rendered once by the shared (player)/layout.tsx,
+ * not per-view here. Phase 8.3 Gate B: every state below now ships on the
+ * paper/light ground — the previous night-ground branches (WAITLISTED,
+ * CHECK_IN_OPEN, ROOM_ASSIGNED, CHECKED_IN_WAITING, and the fallback) are
+ * converted, with pass.css/check-in.css/room.css's own hardcoded ground
+ * overrides and dark-background grid overlays fixed alongside the prop
+ * change — not left behind unreadable.
  */
 export function PassScreen({ state }: { state: PlayerState }) {
   return (
     <>
       <CoordinatorBanner state={state} />
+      <LiveStateRefresher active={DYNAMIC_VIEWS.has(state.view)} />
       <PassScreenBody state={state} />
     </>
   );
@@ -114,7 +131,7 @@ export function PassScreen({ state }: { state: PlayerState }) {
 function PassScreenBody({ state }: { state: PlayerState }) {
   if (state.view === "WAITLISTED") {
     return (
-      <Surface as="main" ground="night" grain="low" className="rc-pass">
+      <Surface as="main" grain="low" className="rc-pass">
         <div className="rc-pass-stage">
           <Waitlisted registration={toRegistrationState(state)} />
         </div>
@@ -128,7 +145,7 @@ function PassScreenBody({ state }: { state: PlayerState }) {
 
   if (state.view === "CHECK_IN_OPEN") {
     return (
-      <Surface as="main" ground="night" grain="low" className="rc-chk">
+      <Surface as="main" grain="low" className="rc-chk">
         <CheckInScreen state={state} />
       </Surface>
     );
@@ -136,7 +153,7 @@ function PassScreenBody({ state }: { state: PlayerState }) {
 
   if (state.view === "ROOM_ASSIGNED") {
     return (
-      <Surface as="main" ground="night" grain="low" className="rc-room">
+      <Surface as="main" grain="low" className="rc-room">
         <RoomAssignedScreen state={state} />
       </Surface>
     );
@@ -144,14 +161,62 @@ function PassScreenBody({ state }: { state: PlayerState }) {
 
   if (state.view === "CHECKED_IN_WAITING") {
     return (
-      <Surface as="main" ground="night" grain="low" className="rc-room">
+      <Surface as="main" grain="low" className="rc-room">
         <WaitingForRoomScreen />
       </Surface>
     );
   }
 
+  if (state.view === "LIVE_ROUND" && state.activeGame && state.room) {
+    return (
+      <Surface as="main" grain="low" className="rc-live">
+        <LiveRoundScreen state={state} />
+      </Surface>
+    );
+  }
+
+  if (state.view === "BETWEEN_ROUNDS" && state.activeGame && state.room) {
+    return (
+      <Surface as="main" grain="low" className="rc-live">
+        <BetweenRoundsScreen state={state} />
+      </Surface>
+    );
+  }
+
+  if (state.view === "BETWEEN_GAMES") {
+    return (
+      <Surface as="main" grain="low" className="rc-live">
+        <BetweenGamesScreen state={state} />
+      </Surface>
+    );
+  }
+
+  if (state.view === "PAUSED") {
+    return (
+      <Surface as="main" grain="low" className="rc-live">
+        <PausedScreen />
+      </Surface>
+    );
+  }
+
+  if (state.view === "QUALIFIED") {
+    return (
+      <Surface as="main" grain="low" className="rc-live">
+        <QualifiedScreen state={state} />
+      </Surface>
+    );
+  }
+
+  if (state.view === "NOT_QUALIFIED") {
+    return (
+      <Surface as="main" grain="low" className="rc-live">
+        <NotQualifiedScreen state={state} />
+      </Surface>
+    );
+  }
+
   return (
-    <Surface as="main" ground="night" grain="low" className="rc-pass">
+    <Surface as="main" grain="low" className="rc-pass">
       <div className="rc-pass-stage">
         <MinimalFallback state={state} />
       </div>

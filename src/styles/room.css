@@ -1,12 +1,12 @@
 /* ===========================================================================
-   Screen 09 — Player Room. Same LIVE register as Screen 08 (near-black
-   aubergine, hot pink pushed hard) — the player has moved from "check in"
-   to "you're placed," which is a louder, more settled moment than either.
+   Screen 09 — Player Room. RECESS V1 light/paper system (Phase 8.3) — was
+   previously styled for a night ground; converted here, not merely
+   reflagged, since the grid overlay and any hardcoded ground value would
+   otherwise leave unreadable/inverted contrast behind.
    =========================================================================== */
 
 @layer components {
   .rc-room {
-    --ground: #150a1a;
     min-height: 100svh;
     overflow: clip;
   }
@@ -18,8 +18,8 @@
     z-index: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+      linear-gradient(rgba(0,0,0,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px);
     background-size: 2.25rem 2.25rem;
     mask-image: radial-gradient(ellipse 75% 65% at 50% 20%, black 40%, transparent 85%);
   }

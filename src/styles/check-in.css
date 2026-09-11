@@ -1,12 +1,12 @@
 /* ===========================================================================
-   Screen 08 — Check In. Live energy: near-black aubergine, the hot pink
-   pushed harder than anywhere else in the system, the approved exploding
-   die as the one large image on the page.
+   Screen 08 — Check In. RECESS V1 light/paper system (Phase 8.3) — was
+   previously styled for a night ground; converted here, not merely
+   reflagged, since the grid overlay and any hardcoded ground value would
+   otherwise leave unreadable/inverted contrast behind.
    =========================================================================== */
 
 @layer components {
   .rc-chk {
-    --ground: #150a1a;
     min-height: 100svh;
     overflow: clip;
   }
@@ -20,8 +20,8 @@
     z-index: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+      linear-gradient(rgba(0,0,0,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px);
     background-size: 2.5rem 2.5rem;
     mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 40%, transparent 85%);
   }
