@@ -103,5 +103,8 @@ export async function requestResultCorrection(
 }
 
 export async function fetchRoomStandings(roomId: string): Promise<ActionResult<RoomStandingRow[]>> {
-  return callRpc<RoomStandingRow[]>("room_standings", { p_room_id: roomId });
+  // coordinator_room_standings(), not room_standings() — the latter is
+  // staff-only by design (its own comment says so explicitly); this is
+  // the narrow, room-scoped read added for exactly this coordinator call.
+  return callRpc<RoomStandingRow[]>("coordinator_room_standings", { p_room_id: roomId });
 }
